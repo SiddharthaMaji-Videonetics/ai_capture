@@ -5,8 +5,11 @@ import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
+import com.videonatics.smartcapture.capture.domain.model.Tilt
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlin.math.atan2
+import kotlin.math.sqrt
 
 class TiltSensorManager(context: Context) : SensorEventListener {
 
@@ -16,43 +19,79 @@ class TiltSensorManager(context: Context) : SensorEventListener {
     private val rotationSensor =
         sensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)
 
-    private val _tilt = MutableStateFlow(Tilt(0f, 0f))
+    // --- CONFIG ---
+    private val tiltThreshold = 5f           // degrees
+    private val stabilityTimeMs = 500L       // must be stable for 500ms
+    private val alpha = 0.1f                 // smoothing factor
+
+    // --- STATE ---
+    private val _tilt = MutableStateFlow(Tilt())
     val tilt: StateFlow<Tilt> = _tilt
 
+    private var smoothPitch = 0f
+    private var smoothRoll = 0f
+
+    private var lastStableTime = 0L
+    private var isStarted = false
+
     fun start() {
+        if (isStarted) return
         rotationSensor?.let {
             sensorManager.registerListener(
                 this,
                 it,
-                SensorManager.SENSOR_DELAY_UI
+                SensorManager.SENSOR_DELAY_GAME // smoother than UI
             )
+            isStarted = true
         }
     }
 
     fun stop() {
+        if (!isStarted) return
         sensorManager.unregisterListener(this)
+        isStarted = false
     }
 
     override fun onSensorChanged(event: SensorEvent) {
-        if (event.sensor.type == Sensor.TYPE_ROTATION_VECTOR) {
+        if (event.sensor.type != Sensor.TYPE_ROTATION_VECTOR) return
 
-            val rotationMatrix = FloatArray(9)
-            SensorManager.getRotationMatrixFromVector(rotationMatrix, event.values)
+        val rotationMatrix = FloatArray(9)
+        SensorManager.getRotationMatrixFromVector(rotationMatrix, event.values)
 
-            val orientation = FloatArray(3)
-            SensorManager.getOrientation(rotationMatrix, orientation)
+        // Extract gravity vector
+        val gX = rotationMatrix[6]
+        val gY = rotationMatrix[7]
+        val gZ = rotationMatrix[8]
 
-            val pitch = Math.toDegrees(orientation[1].toDouble()).toFloat()
-            val roll = Math.toDegrees(orientation[2].toDouble()).toFloat()
+        // Compute pitch & roll from gravity (more stable)
+        val pitchRaw = Math.toDegrees(atan2(-gX.toDouble(), sqrt((gY * gY + gZ * gZ).toDouble()))).toFloat()
+        val rollRaw = Math.toDegrees(atan2(gY.toDouble(), gZ.toDouble())).toFloat()
 
-            _tilt.value = Tilt(pitch, roll)
+        // smoothing (keep your existing)
+        smoothPitch += alpha * (pitchRaw - smoothPitch)
+        smoothRoll += alpha * (rollRaw - smoothRoll)
+
+        val isLevelNow =
+            kotlin.math.abs(smoothPitch) < tiltThreshold &&
+                    kotlin.math.abs(smoothRoll) < tiltThreshold
+
+        val currentTime = System.currentTimeMillis()
+
+        val isStable = if (isLevelNow) {
+            if (lastStableTime == 0L) lastStableTime = currentTime
+            currentTime - lastStableTime > stabilityTimeMs
+        } else {
+            lastStableTime = 0L
+            false
         }
+
+        _tilt.value = Tilt(
+            pitch = smoothPitch,
+            roll = smoothRoll,
+            isLevel = isLevelNow,
+            isStable = isStable
+        )
     }
 
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
 }
-
-data class Tilt(
-    val pitch: Float,
-    val roll: Float
-)

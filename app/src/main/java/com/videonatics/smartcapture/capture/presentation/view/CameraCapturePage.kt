@@ -6,6 +6,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -32,7 +33,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.navigation.NavController
-import com.videonatics.smartcapture.core.InstallArCorePopup
+import com.videonatics.smartcapture.capture.domain.model.Tilt
 import com.videonatics.smartcapture.core.TiltPopup
 import com.videonatics.smartcapture.core.presentation.viewmodel.SharedCaptureViewModel
 import com.videonatics.smartcapture.core.rememberTiltState
@@ -148,16 +149,33 @@ fun CameraCapturePage(navController: NavController,
             }
 
             //tilt popup
-//            if (kotlin.math.abs(tilt.roll) > 20 && kotlin.math.abs(tilt.roll) < 100) {
-//                isTooMuchTilt = true
-//                TiltPopup()
-//            }else{
-//                isTooMuchTilt = false
+            if (kotlin.math.abs(tilt.pitch) > 5 || kotlin.math.abs(tilt.pitch) < -5) {
+                isTooMuchTilt = true
+                TiltPopup()
+            }else{
+                isTooMuchTilt = false
+            }
+
+
+//            AnimatedVisibility (visible = installArCorePrompt){
+//                //InstallArCorePopup()
 //            }
 
-            AnimatedVisibility (visible = installArCorePrompt){
-                //InstallArCorePopup()
-            }
+            //TiltComponent(tilt)
+        }
+
+    }
+}
+
+@Composable
+fun TiltComponent(tilt: Tilt) {
+    return Box(
+        contentAlignment = Alignment.Center,
+        modifier = Modifier.fillMaxSize()
+    ){
+        Column() {
+            Text("Pitch: ${tilt.pitch.toInt()}°")
+            Text("Roll: ${tilt.roll.toInt()}°")
         }
 
     }

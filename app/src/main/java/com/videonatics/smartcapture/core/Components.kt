@@ -26,6 +26,7 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.videonatics.smartcapture.capture.domain.model.Tilt
 
 @Composable
 fun rememberTiltState(): State<Tilt> {
