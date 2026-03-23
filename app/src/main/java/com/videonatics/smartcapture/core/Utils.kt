@@ -19,6 +19,7 @@ import com.google.ar.core.TrackingState
 import com.google.mlkit.vision.objects.DetectedObject
 import com.videonatics.smartcapture.capture.domain.model.ARFrameHolder
 import com.videonatics.smartcapture.core.domain.model.Detection
+import com.videonatics.smartcapture.core.domain.model.Instruction
 import com.videonatics.smartcapture.ui.BoundaryPercent
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
@@ -91,7 +92,7 @@ fun handleDetectionResult(
     imageWidth: Int,
     imageHeight: Int,
     rotationDegrees: Int,
-    onLocalResult: (String, Rect?) -> Unit
+    onLocalResult: (Instruction, Rect?) -> Unit
 ) {
 
     val previewWidth = previewView.width
@@ -105,13 +106,25 @@ fun handleDetectionResult(
 
     if (previewWidth == 0 || previewHeight == 0) {
         Log.d(TAG, "Preview not ready")
-        onLocalResult("Preview not ready",null)
+        onLocalResult(Instruction(
+            moveHorizontal = 0,
+            moveVertical = 0,
+            zoom = 0,
+            isPerfect = false,
+            "Preview not ready"
+        ),null)
         return
     }
 
     if (objects.isEmpty()) {
         Log.d(TAG, "No objects detected")
-        onLocalResult("Searching...", null)
+        onLocalResult(Instruction(
+            moveHorizontal = 0,
+            moveVertical = 0,
+            zoom = 0,
+            isPerfect = false,
+            "Searching..."
+        ), null)
         return
     }
 
@@ -169,7 +182,13 @@ fun handleDetectionResult(
 
         Log.d(TAG, "RESULT: Object outside boundary")
 
-        onLocalResult("Object outside boundary", null)
+        onLocalResult(Instruction(
+            moveHorizontal = 0,
+            moveVertical = 0,
+            zoom = 0,
+            isPerfect = false,
+            "Object outside boundary"
+        ), null)
         return
     }
 
@@ -188,7 +207,7 @@ fun handleDetectionResult(
 
         Log.d(TAG, "RESULT: $label : $framing")
 
-        onLocalResult("$label : $framing", it.second)
+        onLocalResult(framing, it.second)
     }
 }
 
@@ -247,7 +266,7 @@ fun imageProxyToByteArray(image: ImageProxy): ByteArray {
 fun validateObject(
     boundary: Rect,
     objectRect: Rect
-): String {
+): Instruction {
 
     val objectCenterX = objectRect.centerX()
     val objectCenterY = objectRect.centerY()
@@ -258,27 +277,69 @@ fun validateObject(
     val dx = objectCenterX - boundaryCenterX
     val dy = objectCenterY - boundaryCenterY
 
-    val horizontal =
-        when {
-            dx < -boundary.width() * 0.1 -> "Move Right"
-            dx > boundary.width() * 0.1 -> "Move Left"
-            else -> "Horizontally OK"
-        }
+    val thresholdX = (boundary.width() * 0.1f).toInt()
+    val thresholdY = (boundary.height() * 0.1f).toInt()
 
-    val vertical =
-        when {
-            dy < -boundary.height() * 0.1 -> "Move Down"
-            dy > boundary.height() * 0.1 -> "Move Up"
-            else -> "Vertically OK"
-        }
+    // -------------------------------
+    // POSITION (STEP BASED)
+    // -------------------------------
+    val moveHorizontal = when {
+        dx < -thresholdX -> +1   // move right
+        dx > thresholdX -> -1    // move left
+        else -> 0
+    }
 
-    return if (
-        horizontal == "Horizontally OK" &&
-        vertical == "Vertically OK"
+    val moveVertical = when {
+        dy < -thresholdY -> +1   // move down
+        dy > thresholdY -> -1    // move up
+        else -> 0
+    }
+
+    // -------------------------------
+    // SIZE (ZOOM)
+    // -------------------------------
+    val boundaryArea = boundary.width() * boundary.height()
+    val objectArea = objectRect.width() * objectRect.height()
+
+    // avoid float if you want pure int math (optional)
+    val sizeRatio = objectArea.toFloat() / boundaryArea.toFloat()
+
+    val zoom = when {
+        sizeRatio < 0.3f -> +1   // zoom in
+        sizeRatio > 0.8f -> -1   // zoom out
+        else -> 0
+    }
+
+    // -------------------------------
+    // MESSAGE
+    // -------------------------------
+    val messageParts = mutableListOf<String>()
+
+    if (moveHorizontal == -1) messageParts.add("Move Left")
+    if (moveHorizontal == +1) messageParts.add("Move Right")
+
+    if (moveVertical == -1) messageParts.add("Move Up")
+    if (moveVertical == +1) messageParts.add("Move Down")
+
+    if (zoom == +1) messageParts.add("Move closer")
+    if (zoom == -1) messageParts.add("Move away")
+
+    val isPerfect =
+        moveHorizontal == 0 &&
+                moveVertical == 0 &&
+                zoom == 0
+
+    val message =
+        if (isPerfect) "Perfect"
+        else messageParts.joinToString(", ")
+
+    return Instruction(
+        moveHorizontal = moveHorizontal,
+        moveVertical = moveVertical,
+        zoom = zoom,
+        isPerfect = isPerfect,
+        message = message
     )
-        "Perfect"
-    else
-        "$horizontal, $vertical"
 }
 
 fun isRectInsideBoundary(
@@ -588,4 +649,11 @@ fun ensureARCoreInstalled(activity: Activity): Boolean {
     } catch (e: Exception) {
         false
     }
+}
+
+fun getSizeRatio(boundary: Rect, objectBox: Rect): Float {
+    val boundaryArea = boundary.width() * boundary.height()
+    val objectArea = objectBox.width() * objectBox.height()
+
+    return objectArea.toFloat() / boundaryArea.toFloat()
 }

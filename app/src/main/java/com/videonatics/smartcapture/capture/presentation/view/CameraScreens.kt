@@ -54,36 +54,37 @@ fun HybridCameraScreen(padding: PaddingValues,
             captureTrigger = captureTrigger,
             isDepthDetectionEnabled = isDepthDetectionEnabled,
             onLocalResult = {
-                localStatus = "Local: $it"
-                Log.e("detection", it)
+                localStatus = "Local: ${it.message}"
+                Log.e("detection", it.message)
 
-                if(it.contains("Perfect")){
-                    cameraHelperGuild = CameraHelperGuild.Offset(0f,0f)
+                if(it.message.contains("Perfect")){
+                    cameraHelperGuild = CameraHelperGuild.Offset(0f,0f,0f)
                     onCapturableImage.invoke(true)
                 }else{
-                    val dObjPair = it.split(":").last()
-                    val dPairObj = dObjPair.split(",").first() to dObjPair.split(",").last()
-                    if(dPairObj.first.contains("OK") and dPairObj.second.contains("OK")){
-                        cameraHelperGuild = CameraHelperGuild.Offset(0f,0f)
-                    }else if(dPairObj.first.contains("Left") and dPairObj.second.contains("OK")){
-                        cameraHelperGuild = CameraHelperGuild.Offset(-1f,0f)
-                    }else if(dPairObj.first.contains("Right") and dPairObj.second.contains("OK")){
-                        cameraHelperGuild = CameraHelperGuild.Offset(1f,0f)
-                    }else if(dPairObj.first.contains("OK") and dPairObj.second.contains("Up")){
-                        cameraHelperGuild = CameraHelperGuild.Offset(0f,-1f)
-                    }else if(dPairObj.first.contains("OK") and dPairObj.second.contains("Down")){
-                        cameraHelperGuild = CameraHelperGuild.Offset(0f,1f)
-                    }
+                    cameraHelperGuild = CameraHelperGuild.Offset(it.moveHorizontal.toFloat(),it.moveVertical.toFloat(), it.zoom.toFloat())
+//                    val dObjPair = it.split(":").last()
+//                    val dPairObj = dObjPair.split(",").first() to dObjPair.split(",").last()
+//                    if(dPairObj.first.contains("OK") and dPairObj.second.contains("OK")){
+//                        cameraHelperGuild = CameraHelperGuild.Offset(0f,0f)
+//                    }else if(dPairObj.first.contains("Left") and dPairObj.second.contains("OK")){
+//                        cameraHelperGuild = CameraHelperGuild.Offset(-1f,0f)
+//                    }else if(dPairObj.first.contains("Right") and dPairObj.second.contains("OK")){
+//                        cameraHelperGuild = CameraHelperGuild.Offset(1f,0f)
+//                    }else if(dPairObj.first.contains("OK") and dPairObj.second.contains("Up")){
+//                        cameraHelperGuild = CameraHelperGuild.Offset(0f,-1f)
+//                    }else if(dPairObj.first.contains("OK") and dPairObj.second.contains("Down")){
+//                        cameraHelperGuild = CameraHelperGuild.Offset(0f,1f)
+//                    }
 
                     onCapturableImage.invoke(false)
                 }
-                    status = if(it.contains("Perfect")){
+                    status = if(it.message.contains("Perfect")){
                         DetectionStatus.PERFECT
-                    }else if(it.contains("Searching")){
+                    }else if(it.message.contains("Searching")){
                         DetectionStatus.SEARCHING
-                    }else if(it.contains("outside boundary")){
+                    }else if(it.message.contains("outside boundary")){
                         DetectionStatus.OUTSIDE
-                    }else if(it.contains("Move")){
+                    }else if(it.message.contains("Move")){
                         DetectionStatus.PARTIAL
                     }else{
                         DetectionStatus.INSIDE

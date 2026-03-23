@@ -28,6 +28,8 @@ import androidx.compose.material.icons.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.ZoomIn
+import androidx.compose.material.icons.filled.ZoomOut
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -63,7 +65,7 @@ enum class DetectionStatus {
 }
 
 sealed class CameraHelperGuild(){
-    data class Offset(val x: Float, val y: Float) : CameraHelperGuild()
+    data class Offset(val x: Float, val y: Float, val z: Float = 0f) : CameraHelperGuild()
 }
 
 
@@ -126,35 +128,35 @@ fun BoundaryOverlay(
 
         val overlayColor = Color.Black.copy(alpha = 0.5f)
 
-        // 🔲 TOP overlay
+        // TOP overlay
         drawRect(
             color = overlayColor,
             topLeft = Offset(0f, 0f),
             size = Size(size.width, boundaryTop)
         )
 
-        // 🔲 BOTTOM overlay
+        // BOTTOM overlay
         drawRect(
             color = overlayColor,
             topLeft = Offset(0f, boundaryBottom),
             size = Size(size.width, size.height - boundaryBottom)
         )
 
-        // 🔲 LEFT overlay
+        // LEFT overlay
         drawRect(
             color = overlayColor,
             topLeft = Offset(0f, boundaryTop),
             size = Size(boundaryLeft, boundaryBottom - boundaryTop)
         )
 
-        // 🔲 RIGHT overlay
+        // RIGHT overlay
         drawRect(
             color = overlayColor,
             topLeft = Offset(boundaryRight, boundaryTop),
             size = Size(size.width - boundaryRight, boundaryBottom - boundaryTop)
         )
 
-        // ✅ Boundary rectangle
+        // Boundary rectangle
         drawRect(
             color = boundaryColor,
             topLeft = Offset(boundaryLeft, boundaryTop),
@@ -165,7 +167,7 @@ fun BoundaryOverlay(
             style = Stroke(width = 6f)
         )
 
-        // ✅ Detected object box
+        // Detected object box
         detectedBox?.let {
             drawRect(
                 color = objectColor,
@@ -187,6 +189,9 @@ fun BoundaryOverlay(
         var topArrowVisibility by remember { mutableStateOf(false) }
         var rightArrowVisibility by remember { mutableStateOf(false) }
         var bottomArrowVisibility by remember { mutableStateOf(false) }
+        var zoomInVisibility by remember { mutableStateOf(false) }
+        var zoomOutVisibility by remember { mutableStateOf(false) }
+
 
 
         Canvas(modifier = Modifier.matchParentSize()) {
@@ -215,6 +220,15 @@ fun BoundaryOverlay(
                     }else{
                         topArrowVisibility = false
                         bottomArrowVisibility = false
+                    }
+
+                    if(cameraHelperGuild.z !=0f){
+                        zoomInVisibility = cameraHelperGuild.z > 0
+                        zoomOutVisibility = cameraHelperGuild.z < 0
+
+                    }else{
+                        zoomInVisibility = false
+                        zoomOutVisibility = false
                     }
 
 
@@ -313,7 +327,40 @@ fun BoundaryOverlay(
                         .size(iconSize)
                 )
             }
+
+            //for Zoom
+
+            // ZOOM IN
+            AnimatedVisibility(visible = zoomInVisibility) {
+                Icon(
+                    imageVector = Icons.Default.ZoomIn,
+                    contentDescription = null,
+                    tint = boundaryColor.copy(alpha = alpha),
+                    modifier = Modifier
+                        .offset(
+                            x = pxToDp(boundaryCenterXPx - iconSizePx / 2),
+                            y = pxToDp(boundaryCenterYPx - iconSizePx / 2),
+                        )
+                        .size(iconSize)
+                )
+            }
+
+// ZOOM OUT
+            AnimatedVisibility(visible = zoomOutVisibility) {
+                Icon(
+                    imageVector = Icons.Default.ZoomOut,
+                    contentDescription = null,
+                    tint = boundaryColor.copy(alpha = alpha),
+                    modifier = Modifier
+                        .offset(
+                            x = pxToDp(boundaryCenterXPx - iconSizePx / 2),
+                            y = pxToDp(boundaryCenterYPx - iconSizePx / 2),
+                        )
+                        .size(iconSize)
+                )
+            }
         }
+
 
         Box(
             modifier = Modifier

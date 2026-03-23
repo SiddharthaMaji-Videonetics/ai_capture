@@ -46,6 +46,7 @@ import com.videonatics.smartcapture.core.ARCoreManager
 import com.videonatics.smartcapture.core.checkFlatnessWithARCore
 import com.videonatics.smartcapture.core.cropBoundary
 import com.videonatics.smartcapture.core.cropBoundingBox
+import com.videonatics.smartcapture.core.domain.model.Instruction
 import com.videonatics.smartcapture.core.ensureARCoreInstalled
 import com.videonatics.smartcapture.core.getBoundaryRect
 import com.videonatics.smartcapture.core.handleDetectionResult
@@ -63,7 +64,7 @@ import kotlin.coroutines.suspendCoroutine
 fun CameraPreviewHybrid(
     captureTrigger: Boolean,
     isDepthDetectionEnabled: Boolean,
-    onLocalResult: (String) -> Unit,
+    onLocalResult: (Instruction) -> Unit,
     onFrameCaptured: (ByteArray) -> Unit,
     onFullImageCaptured: (Bitmap) -> Unit,
     onBoundingBox: (Rect) -> Unit,
@@ -236,7 +237,7 @@ fun CameraPreviewHybrid(
 
 
                                 if (currentCaptureTrigger && 
-                                    result.contains("Perfect") && 
+                                    result.message.contains("Perfect") &&
                                     !isDisposed.get() &&
                                     lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED) &&
                                     isCapturing.compareAndSet(false, true)) {
