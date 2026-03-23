@@ -225,7 +225,6 @@ fun CameraPreviewHybrid(
                             box?.apply {
 
                                 onBoundingBox.invoke(this)
-
                                 if(isDepthDetectionEnabled){ //check if flatness if depth enabled
                                     val isFlat = checkFlatnessWithARCore(
                                         box = this,
