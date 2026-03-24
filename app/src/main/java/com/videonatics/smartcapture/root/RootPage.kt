@@ -1,5 +1,6 @@
 package com.videonatics.smartcapture.root
 
+import android.util.Log
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -10,6 +11,7 @@ import androidx.navigation.navigation
 import com.videonatics.smartcapture.capture.presentation.view.CameraCapturePage
 import com.videonatics.smartcapture.core.presentation.viewmodel.SharedCaptureViewModel
 import com.videonatics.smartcapture.core.presentation.viewmodel.SharedCoreViewModel
+import com.videonatics.smartcapture.depth_check.ARFlatnessScreen
 import com.videonatics.smartcapture.imagedetails.presentation.view.ImageDetailsPage
 import com.videonatics.smartcapture.settings.presentation.view.SettingsPage
 import com.videonatics.smartcapture.splash.SplashScreen
@@ -43,6 +45,18 @@ fun RootPage(onThemeSwitch: (ThemeMode) -> Unit) {
                     hiltViewModel(parentEntry)
                 CameraCapturePage(navController, sharedViewModel)
             }
+            composable(PageRoute.DEPTH_CHECK.name) {
+                val parentEntry = remember(it) {
+                    navController.getBackStackEntry("main_graph")
+                }
+                val sharedViewModel: SharedCaptureViewModel =
+                    hiltViewModel(parentEntry)
+                ARFlatnessScreen(navController,onResult = {
+                    Log.e("isFlat", it.toString())
+                }){
+
+                }
+            }
             composable(PageRoute.IMAGE_DETAILS.name) {
                 val parentEntry = remember(it) {
                     navController.getBackStackEntry("main_graph")
@@ -70,5 +84,5 @@ fun RootPage(onThemeSwitch: (ThemeMode) -> Unit) {
 }
 
 enum class PageRoute{
-    SPLASH,CAPTURE,IMAGE_DETAILS, SETTINGS
+    SPLASH,CAPTURE,IMAGE_DETAILS, SETTINGS, DEPTH_CHECK
 }

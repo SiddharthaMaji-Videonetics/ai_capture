@@ -172,8 +172,14 @@ fun CameraCapturePage(navController: NavController,
                 captureTrigger = false
                 sharedViewModel.capturedImage = byteArray
                 scope.launch {
-                    navController.navigate(PageRoute.IMAGE_DETAILS.name){
-                        popUpTo(PageRoute.CAPTURE.name){
+//                    navController.navigate(PageRoute.IMAGE_DETAILS.name){
+//                        popUpTo(PageRoute.CAPTURE.name){
+//                            inclusive = true
+//                        }
+//                    }
+
+                    navController.navigate(PageRoute.DEPTH_CHECK.name) {
+                        popUpTo(PageRoute.CAPTURE.name) {
                             inclusive = true
                         }
                     }

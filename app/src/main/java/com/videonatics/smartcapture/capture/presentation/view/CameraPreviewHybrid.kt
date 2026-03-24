@@ -24,7 +24,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -40,12 +39,10 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.google.ar.core.Frame
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.objects.ObjectDetection
 import com.google.mlkit.vision.objects.defaults.ObjectDetectorOptions
-import com.videonatics.smartcapture.core.ARCoreManager
-import com.videonatics.smartcapture.core.LightSensorManager
-import com.videonatics.smartcapture.core.checkFlatnessWithARCore
 import com.videonatics.smartcapture.core.cropBoundary
 import com.videonatics.smartcapture.core.cropBoundingBox
 import com.videonatics.smartcapture.core.domain.model.Instruction
@@ -84,7 +81,7 @@ fun CameraPreviewHybrid(
     val currentOnLocalResult by rememberUpdatedState(onLocalResult)
     val currentOnFrameCaptured by rememberUpdatedState(onFrameCaptured)
     val currentOnFullImageCaptured by rememberUpdatedState(onFullImageCaptured)
-
+    val frameState = remember { mutableStateOf<Frame?>(null) }
 
     val previewView = remember {
         PreviewView(context).apply {
@@ -134,25 +131,25 @@ fun CameraPreviewHybrid(
             .build()
     }
 
-    LaunchedEffect(Unit) {
-        if(isDepthDetectionEnabled){
-            val isInstalled = ensureARCoreInstalled(context as Activity)
-            if(isInstalled) {
-                ARCoreManager.init(context)
-                ARCoreManager.start()
-                ARCoreManager.resume()
-            }else{
-                onArCoreNotInstalled.invoke()
-            }
-        }
 
-    }
+//    LaunchedEffect(Unit) {
+//        if(isDepthDetectionEnabled){
+//            val isInstalled = ensureARCoreInstalled(context as Activity)
+//            if(isInstalled) {
+//                ARCoreManager.init(context)
+//                ARCoreManager.resume()
+//            }else{
+//                onArCoreNotInstalled.invoke()
+//            }
+//        }
+//
+//    }
 
     DisposableEffect(Unit) {
         onDispose {
             isDisposed.set(true)
-            ARCoreManager.stop()
-            
+            //ARCoreManager.stop()
+
             cameraExecutor.shutdown()
             try {
                 val future = ProcessCameraProvider.getInstance(context)
@@ -229,14 +226,16 @@ fun CameraPreviewHybrid(
                             box?.apply {
 
                                 onBoundingBox.invoke(this)
-                                if(isDepthDetectionEnabled){ //check if flatness if depth enabled
-                                    val isFlat = checkFlatnessWithARCore(
-                                        box = this,
-                                        previewView = previewView,
-                                        imageWidth = inputImage.width,
-                                        imageHeight = inputImage.height
-                                    )
-                                }
+//                                if(isDepthDetectionEnabled){ //check if flatness if depth enabled
+//                                    val isFlat = checkFlatnessWithARCore(
+//                                        box = this,
+//                                        previewView = previewView,
+//                                        imageWidth = inputImage.width,
+//                                        imageHeight = inputImage.height
+//                                    )
+//
+//                                    Log.d("isFlat", isFlat.toString())
+//                                }
 
 
                                 if (currentCaptureTrigger && 
@@ -336,7 +335,9 @@ fun CameraPreviewHybrid(
     }
 
     AndroidView(
-        factory = { previewView },
+        factory = {
+            previewView
+        },
         modifier = Modifier
             .fillMaxSize()
             .onSizeChanged { previewSize = it }

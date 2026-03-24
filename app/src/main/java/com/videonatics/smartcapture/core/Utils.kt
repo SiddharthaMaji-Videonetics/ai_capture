@@ -14,8 +14,11 @@ import androidx.camera.view.PreviewView
 import androidx.camera.view.TransformExperimental
 import androidx.compose.ui.graphics.Color
 import com.google.ar.core.ArCoreApk
+import com.google.ar.core.Frame
 import com.google.ar.core.Plane
+import com.google.ar.core.Session
 import com.google.ar.core.TrackingState
+import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.objects.DetectedObject
 import com.videonatics.smartcapture.capture.domain.model.ARFrameHolder
 import com.videonatics.smartcapture.core.domain.model.Detection
@@ -33,6 +36,7 @@ import org.tensorflow.lite.support.tensorbuffer.TensorBuffer
 import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import kotlin.math.abs
 import kotlin.math.roundToInt
 
 
@@ -651,13 +655,21 @@ fun ensureARCoreInstalled(activity: Activity): Boolean {
     }
 }
 
-fun getSizeRatio(boundary: Rect, objectBox: Rect): Float {
-    val boundaryArea = boundary.width() * boundary.height()
-    val objectArea = objectBox.width() * objectBox.height()
-
-    return objectArea.toFloat() / boundaryArea.toFloat()
-}
 
 fun isLowLight(lux: Float): Boolean {
     return lux < 30f
+}
+
+
+fun isDeviceFlat(frame: Frame): Boolean {
+
+    if (frame.camera.trackingState != TrackingState.TRACKING) {
+        return false
+    }
+
+    val cameraPose = frame.camera.pose
+
+    val normalY = cameraPose.yAxis[1]
+
+    return normalY < -0.85f   // device facing downward flat
 }
