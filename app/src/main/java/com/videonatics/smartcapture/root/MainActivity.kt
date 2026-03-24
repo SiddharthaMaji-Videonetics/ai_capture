@@ -2,6 +2,7 @@ package com.videonatics.smartcapture.root
 
 import android.Manifest
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -15,6 +16,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import com.videonatics.smartcapture.ui.theme.SmartCaptureTheme
 import com.videonatics.smartcapture.ui.theme.ThemeMode
 import dagger.hilt.android.AndroidEntryPoint
+import org.opencv.core.Mat
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {

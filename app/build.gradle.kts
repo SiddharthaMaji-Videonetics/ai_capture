@@ -90,4 +90,6 @@ dependencies {
     implementation(libs.logging.interceptor)
 
     implementation("com.google.ar:core:1.53.0")
+
+    implementation("org.opencv:opencv:4.9.0")
 }
