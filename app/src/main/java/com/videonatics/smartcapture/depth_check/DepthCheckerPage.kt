@@ -8,8 +8,11 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -21,6 +24,8 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.navigation.NavController
 import com.videonatics.smartcapture.core.ar_core.ARRenderer
+import com.videonatics.smartcapture.ui.BoundaryPercent
+import com.videonatics.smartcapture.ui.DetectionStatus
 import kotlinx.coroutines.launch
 
 @Composable
@@ -32,6 +37,7 @@ fun ARFlatnessScreen(
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val scope = rememberCoroutineScope()
+    var worldInfo by remember { mutableStateOf("") }
 
     //  Create GLSurfaceView ONLY once
     val glView = remember {
@@ -42,6 +48,7 @@ fun ARFlatnessScreen(
                 ARRenderer(context) { isFlat ->
                     scope.launch {
                         onResult(isFlat)
+                        worldInfo = if (isFlat) "Flat" else "Not Flat"
                     }
                 }
             )
@@ -76,9 +83,14 @@ fun ARFlatnessScreen(
             factory = { glView } //  reuse same view
         )
 
+        ARBoundaryOverlay(
+            boundaryPercent = BoundaryPercent(),
+            status = DetectionStatus.SEARCHING
+        )
+
         // UI overlay
         Text(
-            "Point to flat surface",
+            "world info > $worldInfo",
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .padding(16.dp),

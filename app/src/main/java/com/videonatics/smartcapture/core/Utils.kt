@@ -14,6 +14,7 @@ import androidx.camera.view.PreviewView
 import androidx.camera.view.TransformExperimental
 import androidx.compose.ui.graphics.Color
 import com.google.ar.core.ArCoreApk
+import com.google.ar.core.Coordinates2d
 import com.google.ar.core.Frame
 import com.google.ar.core.Plane
 import com.google.ar.core.Session
@@ -21,6 +22,7 @@ import com.google.ar.core.TrackingState
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.objects.DetectedObject
 import com.videonatics.smartcapture.capture.domain.model.ARFrameHolder
+import com.videonatics.smartcapture.core.ar_core.ARCoreManager
 import com.videonatics.smartcapture.core.domain.model.Detection
 import com.videonatics.smartcapture.core.domain.model.Instruction
 import com.videonatics.smartcapture.ui.BoundaryPercent
@@ -661,15 +663,120 @@ fun isLowLight(lux: Float): Boolean {
 }
 
 
-fun isDeviceFlat(frame: Frame): Boolean {
+private fun isFlatUsingDepth(frame: Frame): Boolean {
+
+    val depthImage = try {
+        frame.acquireDepthImage16Bits()
+    } catch (e: Exception) {
+        Log.d("Depth", "No depth → assume flat")
+        return true
+    }
+
+    val buffer = depthImage.planes[0].buffer.asShortBuffer()
+    val width = depthImage.width
+    val height = depthImage.height
+
+    val samples = mutableListOf<Int>()
+
+    for (y in 0 until height step 10) {
+        for (x in 0 until width step 10) {
+            val index = y * width + x
+            if (index < buffer.limit()) {
+                val depth = buffer.get(index).toInt()
+                if (depth > 0) samples.add(depth)
+            }
+        }
+    }
+
+    depthImage.close()
+
+    if (samples.size < 30) {
+        Log.d("Depth", "Too few samples → flat")
+        return true
+    }
+
+    val mean = samples.average()
+    val variance = samples.sumOf { (it - mean) * (it - mean) } / samples.size
+
+    Log.d("Depth", "variance = $variance")
+
+    return variance < 10000
+}
+
+fun isSceneFlat(frame: Frame): Boolean {
 
     if (frame.camera.trackingState != TrackingState.TRACKING) {
         return false
     }
 
-    val cameraPose = frame.camera.pose
+    return isFlatUsingDepth(frame)
+}
 
-    val normalY = cameraPose.yAxis[1]
+fun isFlatInBoundary(
+    frame: Frame,
+    boundary: BoundaryPercent
+): Boolean {
 
-    return normalY < -0.85f   // device facing downward flat
+    val depthImage = try {
+        frame.acquireDepthImage16Bits()
+    } catch (e: Exception) {
+        return true // no depth → assume flat
+    }
+
+    val buffer = depthImage.planes[0].buffer.asShortBuffer()
+    val depthWidth = depthImage.width
+    val depthHeight = depthImage.height
+
+    //  Step 1: boundary → normalized
+    val input = floatArrayOf(
+        boundary.left, boundary.top,
+        boundary.right, boundary.top,
+        boundary.right, boundary.bottom,
+        boundary.left, boundary.bottom
+    )
+
+    val output = FloatArray(8)
+
+    //  Step 2: map to camera texture space
+    frame.transformCoordinates2d(
+        Coordinates2d.VIEW_NORMALIZED,
+        input,
+        Coordinates2d.TEXTURE_NORMALIZED,
+        output
+    )
+
+    //  Step 3: convert to pixel space
+    val xs = listOf(output[0], output[2], output[4], output[6])
+    val ys = listOf(output[1], output[3], output[5], output[7])
+
+    val minX = (xs.min() * depthWidth).toInt().coerceIn(0, depthWidth - 1)
+    val maxX = (xs.max() * depthWidth).toInt().coerceIn(0, depthWidth - 1)
+
+    val minY = (ys.min() * depthHeight).toInt().coerceIn(0, depthHeight - 1)
+    val maxY = (ys.max() * depthHeight).toInt().coerceIn(0, depthHeight - 1)
+
+    val samples = mutableListOf<Int>()
+
+    for (y in minY until maxY step 4) {
+        for (x in minX until maxX step 4) {
+
+            val index = y * depthWidth + x
+            if (index < buffer.limit()) {
+                val depth = buffer.get(index).toInt()
+
+                if (depth > 0) {
+                    samples.add(depth)
+                }
+            }
+        }
+    }
+
+    depthImage.close()
+
+    if (samples.size < 20) return true
+
+    val mean = samples.average()
+    val variance = samples.sumOf { (it - mean) * (it - mean) } / samples.size
+
+    return variance < 8000
 }

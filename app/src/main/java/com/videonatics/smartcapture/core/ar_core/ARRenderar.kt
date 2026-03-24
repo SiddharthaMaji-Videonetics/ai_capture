@@ -7,7 +7,9 @@ import android.util.Log
 import android.view.Surface
 import com.google.ar.core.Frame
 import com.google.ar.core.TrackingState
-import com.videonatics.smartcapture.core.isDeviceFlat
+import com.videonatics.smartcapture.core.isFlatInBoundary
+import com.videonatics.smartcapture.core.isSceneFlat
+import com.videonatics.smartcapture.ui.BoundaryPercent
 import javax.microedition.khronos.egl.EGLConfig
 import javax.microedition.khronos.opengles.GL10
 
@@ -15,6 +17,7 @@ class ARRenderer(
     private val context: Context,
     private val onFlatDetected: (Boolean) -> Unit
 ) : GLSurfaceView.Renderer {
+    private val resultHistory = ArrayDeque<Boolean>()
 
     private val backgroundRenderer = BackgroundRenderer()
 
@@ -33,8 +36,13 @@ class ARRenderer(
             backgroundRenderer.textureId
         )
     }
+    private var viewportWidth = 0
+    private var viewportHeight = 0
 
     override fun onSurfaceChanged(gl: GL10?, width: Int, height: Int) {
+        viewportWidth = width
+        viewportHeight = height
+
         val rotation = (context as Activity)
             .windowManager.defaultDisplay.rotation
 
@@ -52,12 +60,26 @@ class ARRenderer(
         try {
             val frame = session.update()
 
+            val display = (context as Activity).windowManager.defaultDisplay
+            session.setDisplayGeometry(
+                display.rotation,
+                viewportWidth,
+                viewportHeight
+            )
+
+
             // draw camera correctly
             backgroundRenderer.draw(frame)
             if (isReady(frame)) {
                 Log.e("AR_Process", "Tracking: ${frame.camera.trackingState}")
-                val isFlat = isDeviceFlat(frame)
-                onFlatDetected(isFlat)
+                val raw = isFlatInBoundary(
+                    frame,
+                    boundary = BoundaryPercent()
+                )
+
+                val stable = getStableResult(raw)
+
+                onFlatDetected(stable)
             }
 
 
@@ -65,6 +87,19 @@ class ARRenderer(
         } catch (e: Exception) {
             Log.e("ARRenderer", "error", e)
         }
+    }
+
+    fun getStableResult(current: Boolean): Boolean {
+
+        resultHistory.addLast(current)
+
+        if (resultHistory.size > 10) {
+            resultHistory.removeFirst()
+        }
+
+        val flatCount = resultHistory.count { it }
+
+        return flatCount >= 7 //  threshold tuning
     }
 }
 
@@ -76,3 +111,4 @@ fun isReady(frame: Frame): Boolean {
 
     return ready
 }
+
