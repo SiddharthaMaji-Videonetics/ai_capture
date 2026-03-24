@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -43,6 +44,7 @@ import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.objects.ObjectDetection
 import com.google.mlkit.vision.objects.defaults.ObjectDetectorOptions
 import com.videonatics.smartcapture.core.ARCoreManager
+import com.videonatics.smartcapture.core.LightSensorManager
 import com.videonatics.smartcapture.core.checkFlatnessWithARCore
 import com.videonatics.smartcapture.core.cropBoundary
 import com.videonatics.smartcapture.core.cropBoundingBox
@@ -69,7 +71,8 @@ fun CameraPreviewHybrid(
     onFullImageCaptured: (Bitmap) -> Unit,
     onBoundingBox: (Rect) -> Unit,
     isBoundingBoxEnabled: Boolean = true,
-    onArCoreNotInstalled: () -> Unit
+    onArCoreNotInstalled: () -> Unit,
+    torchEnabled: Boolean = false
 ) {
     var camera by remember { mutableStateOf<Camera?>(null) }
     var zoomRatio by remember { mutableFloatStateOf(1f) }
@@ -320,6 +323,10 @@ fun CameraPreviewHybrid(
         } catch (e: Exception) {
             Log.e("CameraPreviewHybrid", "Binding failed", e)
         }
+    }
+
+    LaunchedEffect(camera, torchEnabled) {
+        camera?.cameraControl?.enableTorch(torchEnabled)
     }
 
     LaunchedEffect(captureTrigger) {

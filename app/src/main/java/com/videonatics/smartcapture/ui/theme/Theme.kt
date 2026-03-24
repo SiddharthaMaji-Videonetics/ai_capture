@@ -71,12 +71,17 @@ fun SmartCaptureTheme(
     val textPrimaryColor =
         if (darkTheme) DarkTextPrimaryColor else LightTextPrimaryColor
 
+    val activatedComponentPrimaryColor =
+        if (darkTheme) DarkActivatedComponentPrimaryColor else LightActivatedComponentPrimaryColor
+
+
 
 
     CompositionLocalProvider(
         LocalCameraBackground provides cameraBackground,
         LocalPrimarySurfaceBackground provides surfacePrimaryBackground,
-        LocalTextPrimaryColor provides textPrimaryColor
+        LocalTextPrimaryColor provides textPrimaryColor,
+        LocalActivatedComponentPrimaryColor provides activatedComponentPrimaryColor
     ) {
         MaterialTheme(
             colorScheme = colorScheme,

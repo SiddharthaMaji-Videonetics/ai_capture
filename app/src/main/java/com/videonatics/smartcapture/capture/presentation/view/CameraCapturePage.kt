@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.FlashAuto
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FabPosition
@@ -24,6 +25,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -32,12 +36,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavController
 import com.videonatics.smartcapture.capture.domain.model.Tilt
+import com.videonatics.smartcapture.core.LightSensorManager
 import com.videonatics.smartcapture.core.TiltPopup
+import com.videonatics.smartcapture.core.isLowLight
 import com.videonatics.smartcapture.core.presentation.viewmodel.SharedCaptureViewModel
 import com.videonatics.smartcapture.core.rememberTiltState
 import com.videonatics.smartcapture.root.PageRoute
+import com.videonatics.smartcapture.ui.theme.LocalActivatedComponentPrimaryColor
 import com.videonatics.smartcapture.ui.theme.LocalTextPrimaryColor
 import kotlinx.coroutines.launch
 import java.util.Stack
@@ -46,6 +54,7 @@ import java.util.Stack
 @Composable
 fun CameraCapturePage(navController: NavController,
                       sharedViewModel: SharedCaptureViewModel) {
+    val context = LocalContext.current
     var captureTrigger by remember { mutableStateOf(false) }
     var capturableImage by remember {mutableStateOf(false)}
     var isTooMuchTilt by remember { mutableStateOf(false) }
@@ -53,6 +62,27 @@ fun CameraCapturePage(navController: NavController,
     val scope = rememberCoroutineScope()
 
     val tilt by rememberTiltState()
+
+    var isTorchEnabled by remember { mutableStateOf(false) }
+    val lightSensorManager = remember { LightSensorManager(context) }
+    val lux by lightSensorManager.lux.collectAsState()
+
+    LaunchedEffect(Unit) {
+        lightSensorManager.start()
+    }
+
+    LaunchedEffect(lux) {
+        val shouldEnableTorch = isLowLight(lux)
+        if (shouldEnableTorch != isTorchEnabled) {
+            isTorchEnabled = shouldEnableTorch
+            Log.e("light", if (shouldEnableTorch) "on" else "off")
+        }
+    }
+
+    DisposableEffect(Unit) {
+        onDispose { lightSensorManager.stop() }
+    }
+
     Scaffold (
         topBar = {
             TopAppBar(
@@ -60,6 +90,18 @@ fun CameraCapturePage(navController: NavController,
                     Text("Smart Capture")
                 },
                 actions = {
+                    AnimatedVisibility(visible = isTorchEnabled) {
+                        IconButton(onClick = {
+                            // navController.navigate(PageRoute.SETTINGS.name)
+                        }) {
+                            Icon(
+                                imageVector = Icons.Default.FlashAuto,
+                                contentDescription = "Flsh",
+                                tint = LocalActivatedComponentPrimaryColor.current
+                            )
+                        }
+                    }
+
                     IconButton(onClick = {
                         navController.navigate(PageRoute.SETTINGS.name)
                     }) {
@@ -144,7 +186,8 @@ fun CameraCapturePage(navController: NavController,
                 },
                 onFullImageCapture = {
                 sharedViewModel.capturedFullImage = it
-                }) {
+                },
+                isFlashOn = isTorchEnabled) {
                 capturableImage = it
             }
 

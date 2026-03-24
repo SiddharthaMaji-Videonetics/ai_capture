@@ -19,3 +19,6 @@ val DarkPrimarySurfaceBackground = Color(0xFF222233)
 
 val LightTextPrimaryColor = Color(0xFF000000)
 val DarkTextPrimaryColor = Color(0xFFFFFFFF)
+
+val LightActivatedComponentPrimaryColor = Color(0xFF754600)
+val DarkActivatedComponentPrimaryColor = Color(0xFFFFAC33)

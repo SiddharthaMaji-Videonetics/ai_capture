@@ -657,3 +657,7 @@ fun getSizeRatio(boundary: Rect, objectBox: Rect): Float {
 
     return objectArea.toFloat() / boundaryArea.toFloat()
 }
+
+fun isLowLight(lux: Float): Boolean {
+    return lux < 30f
+}

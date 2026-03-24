@@ -6,3 +6,5 @@ import androidx.compose.ui.graphics.Color
 val LocalCameraBackground = staticCompositionLocalOf { Color.Unspecified }
 val LocalPrimarySurfaceBackground = staticCompositionLocalOf{Color.Unspecified}
 val LocalTextPrimaryColor = staticCompositionLocalOf{Color.Unspecified}
+
+val LocalActivatedComponentPrimaryColor = staticCompositionLocalOf{Color.Unspecified}

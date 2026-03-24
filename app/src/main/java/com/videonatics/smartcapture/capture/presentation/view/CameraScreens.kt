@@ -32,6 +32,7 @@ fun HybridCameraScreen(padding: PaddingValues,
                        onImageCaptured: (ByteArray) -> Unit,
                        onFullImageCapture: (Bitmap) -> Unit,
                        onArCoreNotInstalled: () -> Unit,
+                       isFlashOn: Boolean = false,
                        onCapturableImage : (Boolean)-> Unit,
                        ) {
     var status by remember { mutableStateOf(DetectionStatus.SEARCHING) }
@@ -108,7 +109,8 @@ fun HybridCameraScreen(padding: PaddingValues,
                 }
             },
             isBoundingBoxEnabled = viewmodel.isBoundBoxEnabled(),
-            onArCoreNotInstalled = onArCoreNotInstalled
+            onArCoreNotInstalled = onArCoreNotInstalled,
+            torchEnabled = isFlashOn
         )
 
         Column(
