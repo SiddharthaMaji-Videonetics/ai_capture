@@ -1,5 +1,6 @@
 package com.videonatics.smartcapture.capture.presentation.view
 
+import android.content.res.Configuration
 import android.util.Log
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -36,6 +37,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavController
 import com.videonatics.smartcapture.capture.domain.model.Tilt
@@ -82,6 +84,10 @@ fun CameraCapturePage(navController: NavController,
     DisposableEffect(Unit) {
         onDispose { lightSensorManager.stop() }
     }
+
+    val configuration = LocalConfiguration.current
+    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+
 
     Scaffold (
         topBar = {
