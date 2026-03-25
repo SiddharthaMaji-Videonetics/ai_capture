@@ -95,7 +95,7 @@ fun HomePageComponent(onAddNewCapture: () -> Unit = {}, onSettingsClick: () -> U
                 EmptyStateWithIcon(
                     icon = Icons.Default.Add,
                     title = "No captures yet",
-                    description = "Click the add button to start capturing",
+                    description = "Click the Capture button to start capturing",
                     actionText = "Capture"
                 ){
                     onAddNewCapture.invoke()

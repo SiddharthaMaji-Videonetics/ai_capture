@@ -11,21 +11,22 @@ import kotlinx.coroutines.flow.StateFlow
 class LightSensorManager(context: Context) : SensorEventListener {
 
     private val sensorManager =
-        context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
+        context.getSystemService(Context.SENSOR_SERVICE) as? SensorManager
 
-    private val lightSensor = sensorManager.getDefaultSensor(Sensor.TYPE_LIGHT)
+    private val lightSensor = sensorManager?.getDefaultSensor(Sensor.TYPE_LIGHT)
 
     private val _lux = MutableStateFlow(0f)
     val lux: StateFlow<Float> = _lux
 
     fun start() {
+        val sm = sensorManager ?: return
         lightSensor?.also {
-            sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_NORMAL)
+            sm.registerListener(this, it, SensorManager.SENSOR_DELAY_NORMAL)
         }
     }
 
     fun stop() {
-        sensorManager.unregisterListener(this)
+        sensorManager?.unregisterListener(this)
     }
 
     override fun onSensorChanged(event: SensorEvent?) {

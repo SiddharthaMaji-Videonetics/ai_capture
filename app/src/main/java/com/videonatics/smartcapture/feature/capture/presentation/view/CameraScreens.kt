@@ -17,9 +17,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.compose.ui.platform.LocalInspectionMode
 import com.videonatics.smartcapture.core.BackendWebSocket
-import com.videonatics.smartcapture.core.presentation.viewmodel.SharedCaptureViewModel
 import com.videonatics.smartcapture.ui.BoundaryOverlay
 import com.videonatics.smartcapture.ui.CameraHelperGuild
 import com.videonatics.smartcapture.ui.DetectionStatus
@@ -34,6 +33,7 @@ fun HybridCameraScreen(padding: PaddingValues,
                        onFullImageCapture: (Bitmap) -> Unit,
                        onArCoreNotInstalled: () -> Unit,
                        isFlashOn: Boolean = false,
+                       isBoundingBoxEnabled: Boolean = false, // Added parameter to avoid ViewModel dependency in Previews
                        onCapturableImage : (Boolean)-> Unit,
                        ) {
     var status by remember { mutableStateOf(DetectionStatus.SEARCHING) }
@@ -42,12 +42,18 @@ fun HybridCameraScreen(padding: PaddingValues,
     var backendStatus by remember { mutableStateOf("Backend: Waiting") }
     var cameraHelperGuild by remember { mutableStateOf( CameraHelperGuild.Offset(0f,0f)) }
 
-    val viewmodel = hiltViewModel<SharedCaptureViewModel>()
-    val webSocket = remember {
+    val isInspectionMode = LocalInspectionMode.current
 
-        BackendWebSocket {
-            backendStatus = "Backend: $it"
-        }.apply { connect() }
+    // Removed hiltViewModel() call to allow this composable to be rendered in Previews.
+    // Necessary data is now passed as parameters.
+
+    val webSocket = remember(isInspectionMode) {
+        if (isInspectionMode) null
+        else {
+            BackendWebSocket {
+                backendStatus = "Backend: $it"
+            }.apply { connect() }
+        }
     }
 
     Box (modifier = Modifier.padding(padding)){
@@ -64,19 +70,6 @@ fun HybridCameraScreen(padding: PaddingValues,
                     onCapturableImage.invoke(true)
                 }else{
                     cameraHelperGuild = CameraHelperGuild.Offset(it.moveHorizontal.toFloat(),it.moveVertical.toFloat(), it.zoom.toFloat())
-//                    val dObjPair = it.split(":").last()
-//                    val dPairObj = dObjPair.split(",").first() to dObjPair.split(",").last()
-//                    if(dPairObj.first.contains("OK") and dPairObj.second.contains("OK")){
-//                        cameraHelperGuild = CameraHelperGuild.Offset(0f,0f)
-//                    }else if(dPairObj.first.contains("Left") and dPairObj.second.contains("OK")){
-//                        cameraHelperGuild = CameraHelperGuild.Offset(-1f,0f)
-//                    }else if(dPairObj.first.contains("Right") and dPairObj.second.contains("OK")){
-//                        cameraHelperGuild = CameraHelperGuild.Offset(1f,0f)
-//                    }else if(dPairObj.first.contains("OK") and dPairObj.second.contains("Up")){
-//                        cameraHelperGuild = CameraHelperGuild.Offset(0f,-1f)
-//                    }else if(dPairObj.first.contains("OK") and dPairObj.second.contains("Down")){
-//                        cameraHelperGuild = CameraHelperGuild.Offset(0f,1f)
-//                    }
 
                     onCapturableImage.invoke(false)
                 }
@@ -96,7 +89,7 @@ fun HybridCameraScreen(padding: PaddingValues,
             },
 
             onFrameCaptured = { bytes ->
-                //webSocket.sendFrame(bytes)
+                //webSocket?.sendFrame(bytes)
                 onImageCaptured.invoke(bytes)
                 Log.e("Frame", "Captured")
             },
@@ -104,14 +97,14 @@ fun HybridCameraScreen(padding: PaddingValues,
                 onFullImageCapture.invoke(it)
             },
             onBoundingBox = {
-                Log.d("isBox", viewmodel.isBoundBoxEnabled().toString())
-                if(viewmodel.isBoundBoxEnabled()){
+                Log.d("isBox", isBoundingBoxEnabled.toString())
+                if(isBoundingBoxEnabled){
                 detectedBox = it
                 }
             },
 
             onCapturedImageStream = onCapturedImageStream,
-            isBoundingBoxEnabled = viewmodel.isBoundBoxEnabled(),
+            isBoundingBoxEnabled = isBoundingBoxEnabled,
             onArCoreNotInstalled = onArCoreNotInstalled,
             torchEnabled = isFlashOn
         )

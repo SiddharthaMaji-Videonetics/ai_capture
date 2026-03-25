@@ -34,6 +34,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
@@ -77,6 +78,7 @@ fun CameraPreviewHybrid(
 
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
+    val isInspectionMode = LocalInspectionMode.current
 
     val currentCaptureTrigger by rememberUpdatedState(captureTrigger)
     val currentOnLocalResult by rememberUpdatedState(onLocalResult)
@@ -92,13 +94,17 @@ fun CameraPreviewHybrid(
 
     var previewSize by remember { mutableStateOf(IntSize.Zero) }
 
-    val detector = remember {
-        val options = ObjectDetectorOptions.Builder()
-            .setDetectorMode(ObjectDetectorOptions.STREAM_MODE)
-            .enableClassification()
-            .enableMultipleObjects()
-            .build()
-        ObjectDetection.getClient(options)
+    val detector = remember(isInspectionMode) {
+        if (isInspectionMode) {
+            null
+        } else {
+            val options = ObjectDetectorOptions.Builder()
+                .setDetectorMode(ObjectDetectorOptions.STREAM_MODE)
+                .enableClassification()
+                .enableMultipleObjects()
+                .build()
+            ObjectDetection.getClient(options)
+        }
     }
 
     val cameraExecutor = remember { Executors.newSingleThreadExecutor() }
@@ -160,11 +166,13 @@ fun CameraPreviewHybrid(
             } catch (e: Exception) {
                 Log.e("CameraPreviewHybrid", "Cleanup failed", e)
             }
-            detector.close()
+            detector?.close()
         }
     }
 
     LaunchedEffect(lifecycleOwner) {
+        if (isInspectionMode) return@LaunchedEffect
+
         val cameraProvider = suspendCoroutine<ProcessCameraProvider?> { continuation ->
             val future = ProcessCameraProvider.getInstance(context)
             future.addListener({
@@ -200,12 +208,18 @@ fun CameraPreviewHybrid(
             }
             lastDetectionTime.set(now)
 
+            val currentDetector = detector
+            if (currentDetector == null) {
+                imageProxy.close()
+                return@setAnalyzer
+            }
+
             val inputImage = InputImage.fromMediaImage(
                 mediaImage,
                 imageProxy.imageInfo.rotationDegrees
             )
 
-            detector.process(inputImage)
+            currentDetector.process(inputImage)
                 .addOnSuccessListener { objects ->
                     if (isDisposed.get()) return@addOnSuccessListener
 

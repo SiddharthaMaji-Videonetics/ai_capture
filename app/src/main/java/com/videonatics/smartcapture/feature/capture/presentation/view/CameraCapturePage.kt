@@ -36,6 +36,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.navigation.NavController
 import com.videonatics.smartcapture.core.LightSensorManager
 import com.videonatics.smartcapture.core.TiltPopup
@@ -43,15 +44,38 @@ import com.videonatics.smartcapture.core.isLowLight
 import com.videonatics.smartcapture.core.presentation.viewmodel.SharedCaptureViewModel
 import com.videonatics.smartcapture.core.rememberTiltState
 import com.videonatics.smartcapture.feature.capture.domain.model.Tilt
+import com.videonatics.smartcapture.feature.home.presentation.view.HomePageComponent
 import com.videonatics.smartcapture.root.PageRoute
 import com.videonatics.smartcapture.ui.theme.LocalActivatedComponentPrimaryColor
 import com.videonatics.smartcapture.ui.theme.LocalTextPrimaryColor
+import com.videonatics.smartcapture.ui.theme.SmartCaptureTheme
 import kotlinx.coroutines.launch
+
+@Composable
+fun CameraCapturePage(navController: NavController,
+                      sharedViewModel: SharedCaptureViewModel? = null) {
+
+    return CameraCapturePageComponent(sharedViewModel,onImageCapture = {
+        if(sharedViewModel?.isDepthDetectionEnabled()?:false){
+            navController.navigate(PageRoute.DEPTH_CHECK.name) {
+                popUpTo(PageRoute.CAPTURE.name) {
+                    inclusive = true
+                }
+            }
+        }else{
+            navController.navigate(PageRoute.IMAGE_DETAILS.name){
+                popUpTo(PageRoute.CAPTURE.name){
+                    inclusive = true
+                }
+            }
+        }
+    })
+
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CameraCapturePage(navController: NavController,
-                      sharedViewModel: SharedCaptureViewModel) {
+fun CameraCapturePageComponent(sharedViewModel: SharedCaptureViewModel? = null, onImageCapture: () -> Unit = {}) {
     val context = LocalContext.current
     var captureTrigger by remember { mutableStateOf(false) }
     var capturableImage by remember {mutableStateOf(false)}
@@ -89,7 +113,7 @@ fun CameraCapturePage(navController: NavController,
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
 
 
-    Scaffold (
+    return Scaffold (
         topBar = {
             TopAppBar(
                 title = {
@@ -134,8 +158,8 @@ fun CameraCapturePage(navController: NavController,
                 FloatingActionButton(
                     containerColor = Color(0xFF3F51B5),
                     onClick = {
-                            captureTrigger = true
-                            capturableImage = false
+                        captureTrigger = true
+                        capturableImage = false
 
                     }) {
                     Icon(
@@ -170,55 +194,42 @@ fun CameraCapturePage(navController: NavController,
     ){ padding ->
         Box(modifier = Modifier.fillMaxSize()){
             HybridCameraScreen(padding,
-                isDepthDetectionEnabled = sharedViewModel.isDepthDetectionEnabled(),
+                isDepthDetectionEnabled = sharedViewModel?.isDepthDetectionEnabled()?:false,
                 captureTrigger,
                 onImageCaptured = { byteArray ->
-                captureTrigger = false
-                sharedViewModel.capturedImage = byteArray
-                scope.launch {
-
-                    if(sharedViewModel.isDepthDetectionEnabled()){
-                        navController.navigate(PageRoute.DEPTH_CHECK.name) {
-                            popUpTo(PageRoute.CAPTURE.name) {
-                                inclusive = true
-                            }
-                        }
-                    }else{
-                        navController.navigate(PageRoute.IMAGE_DETAILS.name){
-                        popUpTo(PageRoute.CAPTURE.name){
-                            inclusive = true
-                        }
-                    }
+                    captureTrigger = false
+                    sharedViewModel?.capturedImage = byteArray
+                    scope.launch {
+                        onImageCapture.invoke()
                     }
 
 
-
-                }
-
-
-            },
+                },
                 onArCoreNotInstalled = {
                     installArCorePrompt = true
                 },
                 onFullImageCapture = {
-                sharedViewModel.capturedFullImage = it
+                    sharedViewModel?.capturedFullImage = it
                 },
                 onCapturedImageStream = {
+                    sharedViewModel?.apply {
+                        sharedViewModel.cropAndProcessImage(it){crpImg ->
+                            sharedViewModel.capturedImageSeq.add(crpImg)
+                        }
 
-                    sharedViewModel.cropAndProcessImage(it){crpImg ->
-                        sharedViewModel.capturedImageSeq.add(crpImg)
-                    }
-
-                    if (sharedViewModel.capturedImageSeq.size >= sharedViewModel.depthImageNoThreshold) {
-                        // Run analysis
-                        sharedViewModel.analyzeDepth(sharedViewModel.capturedImageSeq) { isReal ->
-                            if (isReal) Log.d("ParallaxCheck", "Real 3D object detected")
-                            else Log.d("ParallaxCheck", "Flat photo detected")
-                            sharedViewModel.trimDepthImageSeq()
+                        if (sharedViewModel.capturedImageSeq.size >= sharedViewModel.depthImageNoThreshold) {
+                            // Run analysis
+                            sharedViewModel.analyzeDepth(sharedViewModel.capturedImageSeq) { isReal ->
+                                if (isReal) Log.d("ParallaxCheck", "Real 3D object detected")
+                                else Log.d("ParallaxCheck", "Flat photo detected")
+                                sharedViewModel.trimDepthImageSeq()
+                            }
                         }
                     }
+
                 },
-                isFlashOn = isTorchEnabled) {
+                isFlashOn = isTorchEnabled,
+                isBoundingBoxEnabled = sharedViewModel?.isBoundBoxEnabled() ?: false) {
                 capturableImage = it
             }
 
@@ -241,7 +252,6 @@ fun CameraCapturePage(navController: NavController,
     }
 }
 
-
 @Composable
 fun TiltComponent(tilt: Tilt) {
     return Box(
@@ -253,5 +263,15 @@ fun TiltComponent(tilt: Tilt) {
             Text("Roll: ${tilt.roll.toInt()}°")
         }
 
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun CapturePagePreview() {
+    SmartCaptureTheme {
+        CameraCapturePageComponent {
+
+        }
     }
 }

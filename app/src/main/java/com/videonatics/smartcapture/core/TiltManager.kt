@@ -14,10 +14,10 @@ import kotlin.math.sqrt
 class TiltSensorManager(context: Context) : SensorEventListener {
 
     private val sensorManager =
-        context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
+        context.getSystemService(Context.SENSOR_SERVICE) as? SensorManager
 
     private val rotationSensor =
-        sensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)
+        sensorManager?.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)
 
     // --- CONFIG ---
     private val tiltThreshold = 5f           // degrees
@@ -36,8 +36,9 @@ class TiltSensorManager(context: Context) : SensorEventListener {
 
     fun start() {
         if (isStarted) return
+        val sm = sensorManager ?: return
         rotationSensor?.let {
-            sensorManager.registerListener(
+            sm.registerListener(
                 this,
                 it,
                 SensorManager.SENSOR_DELAY_GAME // smoother than UI
@@ -48,7 +49,7 @@ class TiltSensorManager(context: Context) : SensorEventListener {
 
     fun stop() {
         if (!isStarted) return
-        sensorManager.unregisterListener(this)
+        sensorManager?.unregisterListener(this)
         isStarted = false
     }
 
