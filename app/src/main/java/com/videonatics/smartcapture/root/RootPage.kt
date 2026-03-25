@@ -8,13 +8,14 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navigation
-import com.videonatics.smartcapture.capture.presentation.view.CameraCapturePage
 import com.videonatics.smartcapture.core.presentation.viewmodel.SharedCaptureViewModel
 import com.videonatics.smartcapture.core.presentation.viewmodel.SharedCoreViewModel
-import com.videonatics.smartcapture.depth_check.ARFlatnessScreen
-import com.videonatics.smartcapture.imagedetails.presentation.view.ImageDetailsPage
-import com.videonatics.smartcapture.settings.presentation.view.SettingsPage
-import com.videonatics.smartcapture.splash.SplashScreen
+import com.videonatics.smartcapture.feature.capture.presentation.view.CameraCapturePage
+import com.videonatics.smartcapture.feature.depth_check.ARFlatnessScreen
+import com.videonatics.smartcapture.feature.home.presentation.view.HomePage
+import com.videonatics.smartcapture.feature.imagedetails.presentation.view.ImageDetailsPage
+import com.videonatics.smartcapture.feature.settings.presentation.view.SettingsPage
+import com.videonatics.smartcapture.feature.splash.SplashScreen
 import com.videonatics.smartcapture.ui.theme.ThemeMode
 
 
@@ -37,6 +38,15 @@ fun RootPage(onThemeSwitch: (ThemeMode) -> Unit) {
                 onThemeSwitch.invoke(sharedViewModel.themeMode)
                 SplashScreen(navController)
             }
+            composable(PageRoute.HOME.name) {
+                val parentEntry = remember(it) {
+                    navController.getBackStackEntry("main_graph")
+                }
+                val sharedViewModel: SharedCaptureViewModel =
+                    hiltViewModel(parentEntry)
+                HomePage(navController)
+            }
+
             composable(PageRoute.CAPTURE.name) {
                 val parentEntry = remember(it) {
                     navController.getBackStackEntry("main_graph")
@@ -84,5 +94,5 @@ fun RootPage(onThemeSwitch: (ThemeMode) -> Unit) {
 }
 
 enum class PageRoute{
-    SPLASH,CAPTURE,IMAGE_DETAILS, SETTINGS, DEPTH_CHECK
+    SPLASH,HOME, CAPTURE,IMAGE_DETAILS, SETTINGS, DEPTH_CHECK
 }

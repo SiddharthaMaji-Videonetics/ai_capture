@@ -21,10 +21,10 @@ import com.google.ar.core.Session
 import com.google.ar.core.TrackingState
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.objects.DetectedObject
-import com.videonatics.smartcapture.capture.domain.model.ARFrameHolder
 import com.videonatics.smartcapture.core.ar_core.ARCoreManager
 import com.videonatics.smartcapture.core.domain.model.Detection
 import com.videonatics.smartcapture.core.domain.model.Instruction
+import com.videonatics.smartcapture.feature.capture.domain.model.ARFrameHolder
 import com.videonatics.smartcapture.ui.BoundaryPercent
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody

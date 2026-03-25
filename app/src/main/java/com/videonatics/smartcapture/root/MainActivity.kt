@@ -33,7 +33,7 @@ class MainActivity : ComponentActivity() {
 
 
         setContent {
-            var themeMode by remember { mutableStateOf(ThemeMode.LIGHT) }
+            var themeMode by remember { mutableStateOf(ThemeMode.DARK) }
 
             SmartCaptureTheme (themeMode = themeMode){
                 RootPage(onThemeSwitch = {tm ->
