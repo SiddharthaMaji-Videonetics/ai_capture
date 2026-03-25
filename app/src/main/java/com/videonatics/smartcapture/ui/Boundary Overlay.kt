@@ -360,23 +360,5 @@ fun BoundaryOverlay(
                 )
             }
         }
-
-
-        Box(
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(5.dp)
-                .background(
-                    Color.White.copy(alpha = 0.35f),
-                    RoundedCornerShape(8.dp)
-                )
-                .padding(horizontal = 10.dp, vertical = 6.dp)
-        ) {
-            Image(
-                painter = painterResource(id = R.drawable.vtpl_logo),
-                contentDescription = "Brand Logo",
-                modifier = Modifier.size(width = 52.dp, height = 30.dp)
-            )
-        }
     }
 }

@@ -109,14 +109,14 @@ fun HybridCameraScreen(padding: PaddingValues,
             torchEnabled = isFlashOn
         )
 
-        Column(
-            modifier = Modifier.align(Alignment.TopCenter)
-        ) {
-
-            Text(localStatus, color = Color.White)
-
-            //Text(backendStatus, color = Color.Green)
-        }
+//        Column(
+//            modifier = Modifier.align(Alignment.TopCenter)
+//        ) {
+//
+//            Text(localStatus, color = Color.White)
+//
+//            //Text(backendStatus, color = Color.Green)
+//        }
 
         BoundaryOverlay(
             detectedBox = detectedBox,

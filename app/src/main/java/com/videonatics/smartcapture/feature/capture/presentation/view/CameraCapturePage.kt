@@ -7,9 +7,14 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.FlashAuto
@@ -36,8 +41,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+import com.videonatics.smartcapture.R
 import com.videonatics.smartcapture.core.LightSensorManager
 import com.videonatics.smartcapture.core.TiltPopup
 import com.videonatics.smartcapture.core.isLowLight
@@ -114,35 +122,6 @@ fun CameraCapturePageComponent(sharedViewModel: SharedCaptureViewModel? = null, 
 
 
     return Scaffold (
-        topBar = {
-            TopAppBar(
-                title = {
-                    Text("Smart Capture")
-                },
-                actions = {
-                    AnimatedVisibility(visible = isTorchEnabled,
-                        enter = scaleIn(
-                            initialScale = 0.6f
-                        ) + fadeIn(),
-
-                        exit = scaleOut(
-                            targetScale = 0.6f
-                        ) + fadeOut(
-                        )) {
-                        IconButton(onClick = {
-                            // navController.navigate(PageRoute.SETTINGS.name)
-                        }) {
-                            Icon(
-                                imageVector = Icons.Default.FlashAuto,
-                                contentDescription = "Flsh",
-                                tint = LocalActivatedComponentPrimaryColor.current
-                            )
-                        }
-                    }
-
-                }
-            )
-        },
         floatingActionButtonPosition = FabPosition.Center,
         floatingActionButton = {
             AnimatedVisibility(
@@ -193,6 +172,7 @@ fun CameraCapturePageComponent(sharedViewModel: SharedCaptureViewModel? = null, 
 //        }
     ){ padding ->
         Box(modifier = Modifier.fillMaxSize()){
+
             HybridCameraScreen(padding,
                 isDepthDetectionEnabled = sharedViewModel?.isDepthDetectionEnabled()?:false,
                 captureTrigger,
@@ -232,7 +212,43 @@ fun CameraCapturePageComponent(sharedViewModel: SharedCaptureViewModel? = null, 
                 isBoundingBoxEnabled = sharedViewModel?.isBoundBoxEnabled() ?: false) {
                 capturableImage = it
             }
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(5.dp)
+                    .background(
+                        Color.White.copy(alpha = 0.35f),
+                        RoundedCornerShape(8.dp)
+                    )
+                    .padding(horizontal = 10.dp, vertical = 6.dp)
+            ) {
+                Image(
+                    painter = painterResource(id = R.drawable.vtpl_logo),
+                    contentDescription = "Brand Logo",
+                    modifier = Modifier.size(width = 52.dp, height = 30.dp)
+                )
+            }
+            AnimatedVisibility(visible = isTorchEnabled,
+                enter = scaleIn(
+                    initialScale = 0.6f
+                ) + fadeIn(),
 
+                exit = scaleOut(
+                    targetScale = 0.6f
+                ) + fadeOut(
+                ),
+                modifier = Modifier.align(Alignment.TopEnd)
+                ) {
+                IconButton(onClick = {
+                    // navController.navigate(PageRoute.SETTINGS.name)
+                }) {
+                    Icon(
+                        imageVector = Icons.Default.FlashAuto,
+                        contentDescription = "Flsh",
+                        tint = LocalActivatedComponentPrimaryColor.current
+                    )
+                }
+            }
             //tilt popup
             if (kotlin.math.abs(tilt.pitch) > 5 || kotlin.math.abs(tilt.pitch) < -5) {
                 isTooMuchTilt = true
