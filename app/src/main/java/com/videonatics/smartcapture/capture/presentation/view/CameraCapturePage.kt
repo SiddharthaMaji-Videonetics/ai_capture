@@ -96,7 +96,15 @@ fun CameraCapturePage(navController: NavController,
                     Text("Smart Capture")
                 },
                 actions = {
-                    AnimatedVisibility(visible = isTorchEnabled) {
+                    AnimatedVisibility(visible = isTorchEnabled,
+                        enter = scaleIn(
+                            initialScale = 0.6f
+                        ) + fadeIn(),
+
+                        exit = scaleOut(
+                            targetScale = 0.6f
+                        ) + fadeOut(
+                        )) {
                         IconButton(onClick = {
                             // navController.navigate(PageRoute.SETTINGS.name)
                         }) {
