@@ -29,6 +29,11 @@ import com.videonatics.smartcapture.ui.BoundaryPercent
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.toRequestBody
+import org.opencv.android.Utils
+import org.opencv.core.Core
+import org.opencv.core.Mat
+import org.opencv.imgproc.Imgproc
+import org.opencv.video.Video
 import org.tensorflow.lite.DataType
 import org.tensorflow.lite.support.common.ops.NormalizeOp
 import org.tensorflow.lite.support.image.ImageProcessor
@@ -779,4 +784,96 @@ fun isFlatInBoundary(
     val variance = samples.sumOf { (it - mean) * (it - mean) } / samples.size
 
     return variance < 8000
+}
+
+//depth process for image
+fun byteArrayToBitmap(byteArray: ByteArray): Bitmap {
+    return BitmapFactory.decodeByteArray(byteArray, 0, byteArray.size)
+}
+
+fun bitmapToGrayMat(bitmap: Bitmap): Mat {
+    val mat = Mat()
+    val bmp32 = bitmap.copy(Bitmap.Config.ARGB_8888, true)
+    Utils.bitmapToMat(bmp32, mat)
+    Imgproc.cvtColor(mat, mat, Imgproc.COLOR_BGR2GRAY)
+    return mat
+}
+
+private fun calculateParallaxScore(frames: List<Bitmap>): Float {
+    if (frames.size < 2) return 0f
+
+    var totalFlowMagnitude = 0.0
+
+    for (i in 0 until frames.size - 1) {
+        val prevMat = bitmapToGrayMat(frames[i])
+        val nextMat = bitmapToGrayMat(frames[i + 1])
+
+        val flow = Mat()
+        Video.calcOpticalFlowFarneback(
+            prevMat, nextMat, flow,
+            0.5, 3, 15, 3, 5, 1.2, 0
+        )
+
+        // Split flow into x and y channels
+        val flowXY = ArrayList<Mat>()
+        Core.split(flow, flowXY)
+
+        // Compute magnitude
+        val magnitudeMat = Mat()
+        Core.magnitude(flowXY[0], flowXY[1], magnitudeMat)
+
+        // Average magnitude
+        val avgMagnitude = Core.mean(magnitudeMat).`val`[0]
+        totalFlowMagnitude += avgMagnitude
+    }
+
+    return (totalFlowMagnitude / (frames.size - 1)).toFloat()
+}
+
+private fun calculateFlowVariance(frames: List<Bitmap>): Float {
+    if (frames.size < 2) return 0f
+
+    val avgMagnitudes = mutableListOf<Float>()
+
+    for (i in 0 until frames.size - 1) {
+        val prevMat = bitmapToGrayMat(frames[i])
+        val nextMat = bitmapToGrayMat(frames[i + 1])
+
+        val flow = Mat()
+        Video.calcOpticalFlowFarneback(
+            prevMat, nextMat, flow,
+            0.5, 3, 15, 3, 5, 1.2, 0
+        )
+
+        // Split flow into x and y channels
+        val flowXY = ArrayList<Mat>()
+        Core.split(flow, flowXY)
+
+        // Compute magnitude for all pixels
+        val magnitudeMat = Mat()
+        Core.magnitude(flowXY[0], flowXY[1], magnitudeMat)
+
+        // Compute average magnitude for this frame pair
+        val meanMag = Core.mean(magnitudeMat).`val`[0].toFloat()
+        avgMagnitudes.add(meanMag)
+    }
+
+    // Compute variance of average magnitudes
+    val mean = avgMagnitudes.average().toFloat()
+    val variance = avgMagnitudes.map { (it - mean) * (it - mean) }.average().toFloat()
+    return variance
+}
+
+fun combinedParallaxDetection(bitmaps: List<Bitmap>,
+                              avgThreshold: Float = 1.0f,
+                              varThreshold: Float = 1.5f): Boolean {
+
+    val avgFlow = calculateParallaxScore(bitmaps)
+    val flowVar = calculateFlowVariance(bitmaps)
+
+    // Weighted combination
+    val combinedScore = 0.4f * avgFlow + 0.6f * flowVar
+
+    // Threshold decision
+    return combinedScore > varThreshold
 }

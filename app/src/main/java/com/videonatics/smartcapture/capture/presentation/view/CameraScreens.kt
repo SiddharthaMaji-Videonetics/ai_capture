@@ -30,6 +30,7 @@ fun HybridCameraScreen(padding: PaddingValues,
                        isDepthDetectionEnabled: Boolean,
                        captureTrigger: Boolean,
                        onImageCaptured: (ByteArray) -> Unit,
+                       onCapturedImageStream:(Bitmap) -> Unit,
                        onFullImageCapture: (Bitmap) -> Unit,
                        onArCoreNotInstalled: () -> Unit,
                        isFlashOn: Boolean = false,
@@ -108,6 +109,8 @@ fun HybridCameraScreen(padding: PaddingValues,
                 detectedBox = it
                 }
             },
+
+            onCapturedImageStream = onCapturedImageStream,
             isBoundingBoxEnabled = viewmodel.isBoundBoxEnabled(),
             onArCoreNotInstalled = onArCoreNotInstalled,
             torchEnabled = isFlashOn

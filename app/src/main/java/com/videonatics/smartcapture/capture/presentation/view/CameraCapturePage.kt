@@ -7,8 +7,6 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -24,7 +22,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -50,7 +47,6 @@ import com.videonatics.smartcapture.root.PageRoute
 import com.videonatics.smartcapture.ui.theme.LocalActivatedComponentPrimaryColor
 import com.videonatics.smartcapture.ui.theme.LocalTextPrimaryColor
 import kotlinx.coroutines.launch
-import java.util.Stack
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -61,6 +57,10 @@ fun CameraCapturePage(navController: NavController,
     var capturableImage by remember {mutableStateOf(false)}
     var isTooMuchTilt by remember { mutableStateOf(false) }
     var installArCorePrompt by remember { mutableStateOf(false) }
+
+
+
+    //---
     val scope = rememberCoroutineScope()
 
     val tilt by rememberTiltState()
@@ -205,6 +205,21 @@ fun CameraCapturePage(navController: NavController,
                 onFullImageCapture = {
                 sharedViewModel.capturedFullImage = it
                 },
+                onCapturedImageStream = {
+
+                    sharedViewModel.cropAndProcessImage(it){crpImg ->
+                        sharedViewModel.capturedImageSeq.add(crpImg)
+                    }
+
+                    if (sharedViewModel.capturedImageSeq.size >= sharedViewModel.depthImageNoThreshold) {
+                        // Run analysis
+                        sharedViewModel.analyzeDepth(sharedViewModel.capturedImageSeq) { isReal ->
+                            if (isReal) Log.d("ParallaxCheck", "Real 3D object detected")
+                            else Log.d("ParallaxCheck", "Flat photo detected")
+                            sharedViewModel.trimDepthImageSeq()
+                        }
+                    }
+                },
                 isFlashOn = isTorchEnabled) {
                 capturableImage = it
             }
@@ -227,6 +242,7 @@ fun CameraCapturePage(navController: NavController,
 
     }
 }
+
 
 @Composable
 fun TiltComponent(tilt: Tilt) {

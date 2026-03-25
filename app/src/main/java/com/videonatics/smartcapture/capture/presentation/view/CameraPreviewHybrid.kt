@@ -69,6 +69,7 @@ fun CameraPreviewHybrid(
     onBoundingBox: (Rect) -> Unit,
     isBoundingBoxEnabled: Boolean = true,
     onArCoreNotInstalled: () -> Unit,
+    onCapturedImageStream:(Bitmap) -> Unit,
     torchEnabled: Boolean = false
 ) {
     var camera by remember { mutableStateOf<Camera?>(null) }
@@ -299,6 +300,7 @@ fun CameraPreviewHybrid(
                                 }
                             }
                             currentOnLocalResult(result)
+                            onCapturedImageStream.invoke(imageProxy.toBitmap())
                         }
                     )
                 }
