@@ -92,4 +92,6 @@ dependencies {
     implementation("com.google.ar:core:1.53.0")
 
     implementation("org.opencv:opencv:4.9.0")
+
+    implementation("com.google.android.gms:play-services-location:21.3.0")
 }

@@ -1,7 +1,10 @@
 package com.videonatics.smartcapture.feature.capture.presentation.view
 
+import android.Manifest
 import android.content.res.Configuration
 import android.util.Log
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -12,8 +15,10 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CameraAlt
@@ -44,6 +49,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.videonatics.smartcapture.R
 import com.videonatics.smartcapture.core.LightSensorManager
@@ -52,6 +59,8 @@ import com.videonatics.smartcapture.core.isLowLight
 import com.videonatics.smartcapture.core.presentation.viewmodel.SharedCaptureViewModel
 import com.videonatics.smartcapture.core.rememberTiltState
 import com.videonatics.smartcapture.feature.capture.domain.model.Tilt
+import com.videonatics.smartcapture.feature.capture.presentation.view.components.LocationPermission
+import com.videonatics.smartcapture.feature.capture.presentation.viewmodel.CaptureViewModel
 import com.videonatics.smartcapture.feature.home.presentation.view.HomePageComponent
 import com.videonatics.smartcapture.root.PageRoute
 import com.videonatics.smartcapture.ui.theme.LocalActivatedComponentPrimaryColor
@@ -63,6 +72,16 @@ import kotlinx.coroutines.launch
 fun CameraCapturePage(navController: NavController,
                       sharedViewModel: SharedCaptureViewModel? = null) {
 
+    val viewModel = hiltViewModel<CaptureViewModel>()
+    val location by viewModel.location.collectAsState()
+
+    LocationPermission {
+        viewModel.startLocationUpdates()
+    }
+
+    if (location != null) {
+        Log.e("location","Lat: ${location!!.first}, Lon: ${location!!.second}")
+    }
     return CameraCapturePageComponent(sharedViewModel,onImageCapture = {
         if(sharedViewModel?.isDepthDetectionEnabled()?:false){
             navController.navigate(PageRoute.DEPTH_CHECK.name) {
@@ -215,11 +234,13 @@ fun CameraCapturePageComponent(sharedViewModel: SharedCaptureViewModel? = null, 
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
+                    .navigationBarsPadding()
                     .padding(5.dp)
                     .background(
                         Color.White.copy(alpha = 0.35f),
                         RoundedCornerShape(8.dp)
                     )
+
                     .padding(horizontal = 10.dp, vertical = 6.dp)
             ) {
                 Image(
@@ -237,7 +258,7 @@ fun CameraCapturePageComponent(sharedViewModel: SharedCaptureViewModel? = null, 
                     targetScale = 0.6f
                 ) + fadeOut(
                 ),
-                modifier = Modifier.align(Alignment.TopEnd)
+                modifier = Modifier.align(Alignment.TopEnd).statusBarsPadding()
                 ) {
                 IconButton(onClick = {
                     // navController.navigate(PageRoute.SETTINGS.name)
