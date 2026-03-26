@@ -199,20 +199,29 @@ fun CameraCapturePageComponent(sharedViewModel: SharedCaptureViewModel? = null, 
                     sharedViewModel?.capturedFullImage = it
                 },
                 onCapturedImageStream = {
-                    sharedViewModel?.apply {
-                        sharedViewModel.cropAndProcessImage(it){crpImg ->
-                            sharedViewModel.capturedImageSeq.add(crpImg)
-                        }
+                    if(isDepthScanning){
+                        sharedViewModel?.apply {
+                            sharedViewModel.cropAndProcessImage(it){crpImg ->
+                                sharedViewModel.capturedImageSeq.add(crpImg)
+                            }
 
-                        if (sharedViewModel.capturedImageSeq.size >= sharedViewModel.depthImageNoThreshold) {
-                            // Run analysis
-                            sharedViewModel.analyzeDepth(sharedViewModel.capturedImageSeq) { isReal ->
-                                if (isReal) Log.d("ParallaxCheck", "Real 3D object detected")
-                                else Log.d("ParallaxCheck", "Flat photo detected")
-                                sharedViewModel.trimDepthImageSeq()
+                            if (sharedViewModel.capturedImageSeq.size >= sharedViewModel.depthImageNoThreshold) {
+                                // Run analysis
+                                sharedViewModel.analyzeDepth(sharedViewModel.capturedImageSeq) { isReal ->
+                                    if (isReal) {
+                                        Log.d("ParallaxCheck", "Real 3D object detected")
+
+                                        isDepthScanning = false
+                                    }
+                                    else {
+                                        Log.d("ParallaxCheck", "Flat photo detected")
+                                    }
+                                    sharedViewModel.trimDepthImageSeq()
+                                }
                             }
                         }
                     }
+
 
                 },
                 isFlashOn = isTorchEnabled,

@@ -34,6 +34,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.ModalBottomSheetDefaults
+import androidx.compose.material3.ModalBottomSheetProperties
 import androidx.compose.material3.SheetState
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
@@ -94,8 +96,10 @@ fun DepthScanningBottomSheet(sheetState: SheetState,
                       onDismiss: ()-> Unit, ) {
     val scope = rememberCoroutineScope()
     return ModalBottomSheet(
-        onDismissRequest = onDismiss,
+        onDismissRequest = {  },
+        dragHandle = null,
         sheetState = sheetState,
+
     ) {
 
         Column(
@@ -218,7 +222,9 @@ fun MotionSlider(
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.Center,
-                modifier = Modifier.fillMaxWidth().padding(5.dp)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(5.dp)
             ) {
                 Icon(
                     imageVector = Icons.Default.AccessTime,
