@@ -32,6 +32,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -59,6 +60,7 @@ import com.videonatics.smartcapture.core.isLowLight
 import com.videonatics.smartcapture.core.presentation.viewmodel.SharedCaptureViewModel
 import com.videonatics.smartcapture.core.rememberTiltState
 import com.videonatics.smartcapture.feature.capture.domain.model.Tilt
+import com.videonatics.smartcapture.feature.capture.presentation.view.components.DepthScanningBottomSheet
 import com.videonatics.smartcapture.feature.capture.presentation.view.components.LocationPermission
 import com.videonatics.smartcapture.feature.capture.presentation.viewmodel.CaptureViewModel
 import com.videonatics.smartcapture.feature.home.presentation.view.HomePageComponent
@@ -108,8 +110,11 @@ fun CameraCapturePageComponent(sharedViewModel: SharedCaptureViewModel? = null, 
     var capturableImage by remember {mutableStateOf(false)}
     var isTooMuchTilt by remember { mutableStateOf(false) }
     var installArCorePrompt by remember { mutableStateOf(false) }
+    var isDepthScanning by remember { mutableStateOf(false) }
 
-
+    val depthScanBottomSheetState = rememberModalBottomSheetState(
+        skipPartiallyExpanded = true
+    )
 
     //---
     val scope = rememberCoroutineScope()
@@ -122,6 +127,7 @@ fun CameraCapturePageComponent(sharedViewModel: SharedCaptureViewModel? = null, 
 
     LaunchedEffect(Unit) {
         lightSensorManager.start()
+        isDepthScanning = true
     }
 
     LaunchedEffect(lux) {
@@ -170,25 +176,7 @@ fun CameraCapturePageComponent(sharedViewModel: SharedCaptureViewModel? = null, 
 
 
         },
-//        bottomBar = {
-//            Column(
-//                modifier = Modifier.fillMaxSize(),
-//                verticalArrangement = Arrangement.Center,
-//                horizontalAlignment = Alignment.CenterHorizontally
-//            ) {
-//
-////                Text("Pitch: ${tilt.pitch.toInt()}°")
-////                Text("Roll: ${tilt.roll.toInt()}°")
-//
-////                if (kotlin.math.abs(tilt.pitch) > 15) {
-////                    Text("Too much forward/backward tilt!")
-////                }
-//
-//                if (kotlin.math.abs(tilt.roll) > 15) {
-//                    Text("Too much left/right tilt!")
-//                }
-//            }
-//        }
+
     ){ padding ->
         Box(modifier = Modifier.fillMaxSize()){
 
@@ -284,6 +272,12 @@ fun CameraCapturePageComponent(sharedViewModel: SharedCaptureViewModel? = null, 
 //            }
 
             //TiltComponent(tilt)
+
+            if(isDepthScanning){
+                DepthScanningBottomSheet(depthScanBottomSheetState) {
+                    isDepthScanning = false
+                }
+            }
         }
 
     }
