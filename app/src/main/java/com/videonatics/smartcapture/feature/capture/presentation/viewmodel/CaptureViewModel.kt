@@ -16,7 +16,6 @@ class CaptureViewModel @Inject constructor(
     private val _location = MutableStateFlow<Pair<Double, Double>?>(null)
     val location: StateFlow<Pair<Double, Double>?> = _location
 
-
     fun startLocationUpdates() {
         viewModelScope.launch {
             repo.getLocationFlow().collect {

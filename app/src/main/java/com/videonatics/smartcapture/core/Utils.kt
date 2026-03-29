@@ -9,6 +9,7 @@ import android.graphics.Matrix
 import android.graphics.Rect
 import android.graphics.RectF
 import android.graphics.YuvImage
+import android.media.Image
 import android.util.Log
 import android.widget.Toast
 import androidx.camera.core.ImageProxy
@@ -882,4 +883,33 @@ fun combinedParallaxDetection(bitmaps: List<Bitmap>,
 
 fun Context.showToast(message: String, duration: Int = Toast.LENGTH_SHORT) {
     Toast.makeText(this, message, duration).show()
+}
+
+fun extractDepth(depthImage: Image): ShortArray {
+    val buffer = depthImage.planes[0].buffer
+    val depthArray = ShortArray(buffer.remaining() / 2)
+    buffer.asShortBuffer().get(depthArray)
+    return depthArray
+}
+
+fun centerROI(depth: ShortArray, width: Int, height: Int): List<Int> {
+    val result = mutableListOf<Int>()
+
+    val startX = width / 4
+    val endX = 3 * width / 4
+    val startY = height / 4
+    val endY = 3 * height / 4
+
+    for (y in startY until endY) {
+        for (x in startX until endX) {
+            val value = depth[y * width + x].toInt()
+            if (value > 0) result.add(value)
+        }
+    }
+    return result
+}
+
+fun computeRange(values: List<Int>): Int {
+    if (values.isEmpty()) return 0
+    return values.maxOrNull()!! - values.minOrNull()!!
 }
