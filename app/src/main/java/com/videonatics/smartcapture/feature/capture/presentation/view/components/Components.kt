@@ -57,6 +57,10 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.videonatics.smartcapture.feature.capture.presentation.view.CameraCapturePageComponent
 import com.videonatics.smartcapture.feature.capture.presentation.view.FlashController
+import com.videonatics.smartcapture.ui.theme.LocalActivatedComponentPrimaryColor
+import com.videonatics.smartcapture.ui.theme.LocalCameraBackground
+import com.videonatics.smartcapture.ui.theme.LocalPrimarySurfaceBackground
+import com.videonatics.smartcapture.ui.theme.LocalTextPrimaryColor
 import com.videonatics.smartcapture.ui.theme.SmartCaptureTheme
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -96,8 +100,15 @@ fun DepthScanningBottomSheet(sheetState: SheetState,
                       onDismiss: ()-> Unit, ) {
     val scope = rememberCoroutineScope()
     return ModalBottomSheet(
-        onDismissRequest = {  },
-        dragHandle = null,
+        onDismissRequest = {
+                                scope.launch {
+                        sheetState.hide()
+                        delay(100)
+                                    onDismiss.invoke()
+                                    sheetState.show()
+                    }
+
+        },
         sheetState = sheetState,
 
     ) {
@@ -117,11 +128,7 @@ fun DepthScanningBottomSheet(sheetState: SheetState,
                 seconds = 5,
                 isScanning = true,
                 onScanDepth = {
-//                    scope.launch {
-//                        sheetState.hide()
-//                        delay(100)
-//
-//                    }
+
                 }
             )
 
@@ -162,13 +169,13 @@ fun MotionSlider(
                 Icon(
                     imageVector = Icons.Default.KeyboardArrowLeft,
                     contentDescription = "Left",
-                    tint = Color.White
+                    tint = LocalTextPrimaryColor.current
                 )
             }
 
             Text(
                 text = "Move Phone left and right",
-                color = Color.White
+                color = LocalTextPrimaryColor.current
             )
 
             // RIGHT → emits +ve
@@ -178,7 +185,7 @@ fun MotionSlider(
                 Icon(
                     imageVector = Icons.Default.KeyboardArrowRight,
                     contentDescription = "Right",
-                    tint = Color.White
+                    tint = LocalTextPrimaryColor.current
                 )
             }
         }
@@ -236,7 +243,7 @@ fun MotionSlider(
 
                 Text(
                     text = "$seconds Sec.",
-                    color = Color(0xFFFFB74D)
+                    color = LocalActivatedComponentPrimaryColor.current
                 )
             }
         }

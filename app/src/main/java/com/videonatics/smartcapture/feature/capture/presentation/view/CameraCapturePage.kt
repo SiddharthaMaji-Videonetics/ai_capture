@@ -59,6 +59,7 @@ import com.videonatics.smartcapture.core.TiltPopup
 import com.videonatics.smartcapture.core.isLowLight
 import com.videonatics.smartcapture.core.presentation.viewmodel.SharedCaptureViewModel
 import com.videonatics.smartcapture.core.rememberTiltState
+import com.videonatics.smartcapture.core.showToast
 import com.videonatics.smartcapture.feature.capture.domain.model.Tilt
 import com.videonatics.smartcapture.feature.capture.presentation.view.components.DepthScanningBottomSheet
 import com.videonatics.smartcapture.feature.capture.presentation.view.components.LocationPermission
@@ -111,6 +112,9 @@ fun CameraCapturePageComponent(sharedViewModel: SharedCaptureViewModel? = null, 
     var isTooMuchTilt by remember { mutableStateOf(false) }
     var installArCorePrompt by remember { mutableStateOf(false) }
     var isDepthScanning by remember { mutableStateOf(false) }
+    val noOfConfirmation = 5
+    var object3dConfirmationCount by remember { mutableStateOf(noOfConfirmation) } //need to confirm 5 times side be side
+
 
     val depthScanBottomSheetState = rememberModalBottomSheetState(
         skipPartiallyExpanded = true
@@ -182,6 +186,7 @@ fun CameraCapturePageComponent(sharedViewModel: SharedCaptureViewModel? = null, 
 
             HybridCameraScreen(padding,
                 isDepthDetectionEnabled = sharedViewModel?.isDepthDetectionEnabled()?:false,
+                isDepthScanning = isDepthScanning,
                 captureTrigger,
                 onImageCaptured = { byteArray ->
                     captureTrigger = false
@@ -210,11 +215,26 @@ fun CameraCapturePageComponent(sharedViewModel: SharedCaptureViewModel? = null, 
                                 sharedViewModel.analyzeDepth(sharedViewModel.capturedImageSeq) { isReal ->
                                     if (isReal) {
                                         Log.d("ParallaxCheck", "Real 3D object detected")
+                                        if(object3dConfirmationCount >0){
+                                            object3dConfirmationCount--
+                                            sharedViewModel.capturedImageSeq.clear()
+                                        }else{
+                                            sharedViewModel.capturedImageSeq.clear()
+                                            context.showToast("Real 3D object detected")
+                                            scope.launch {
+                                                depthScanBottomSheetState.hide()
+                                                isDepthScanning = false
+                                                object3dConfirmationCount =0
+                                            }
+                                        }
 
-                                        isDepthScanning = false
+
                                     }
                                     else {
                                         Log.d("ParallaxCheck", "Flat photo detected")
+                                        if(object3dConfirmationCount <=noOfConfirmation){
+                                        object3dConfirmationCount++
+                                        }
                                     }
                                     sharedViewModel.trimDepthImageSeq()
                                 }
@@ -263,12 +283,12 @@ fun CameraCapturePageComponent(sharedViewModel: SharedCaptureViewModel? = null, 
                     Icon(
                         imageVector = Icons.Default.FlashAuto,
                         contentDescription = "Flsh",
-                        tint = LocalActivatedComponentPrimaryColor.current
+                        tint = Color(0xFFFFC107)
                     )
                 }
             }
             //tilt popup
-            if (kotlin.math.abs(tilt.pitch) > 5 || kotlin.math.abs(tilt.pitch) < -5) {
+            if (kotlin.math.abs(tilt.pitch) > 10 || kotlin.math.abs(tilt.pitch) < -10) {
                 isTooMuchTilt = true
                 TiltPopup()
             }else{
@@ -284,7 +304,7 @@ fun CameraCapturePageComponent(sharedViewModel: SharedCaptureViewModel? = null, 
 
             if(isDepthScanning){
                 DepthScanningBottomSheet(depthScanBottomSheetState) {
-                    isDepthScanning = false
+                    isDepthScanning = true
                 }
             }
         }

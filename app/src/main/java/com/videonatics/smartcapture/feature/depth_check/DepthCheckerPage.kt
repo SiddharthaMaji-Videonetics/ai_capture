@@ -85,7 +85,6 @@ fun ARFlatnessScreen(
 
         ARBoundaryOverlay(
             boundaryPercent = BoundaryPercent(),
-            status = DetectionStatus.SEARCHING
         )
 
         // UI overlay

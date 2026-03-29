@@ -1,6 +1,7 @@
 package com.videonatics.smartcapture.core
 
 import android.app.Activity
+import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.ImageFormat
@@ -9,6 +10,7 @@ import android.graphics.Rect
 import android.graphics.RectF
 import android.graphics.YuvImage
 import android.util.Log
+import android.widget.Toast
 import androidx.camera.core.ImageProxy
 import androidx.camera.view.PreviewView
 import androidx.camera.view.TransformExperimental
@@ -876,4 +878,8 @@ fun combinedParallaxDetection(bitmaps: List<Bitmap>,
 
     // Threshold decision
     return combinedScore > varThreshold
+}
+
+fun Context.showToast(message: String, duration: Int = Toast.LENGTH_SHORT) {
+    Toast.makeText(this, message, duration).show()
 }

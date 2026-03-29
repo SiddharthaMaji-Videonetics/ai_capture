@@ -19,6 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalInspectionMode
 import com.videonatics.smartcapture.core.BackendWebSocket
+import com.videonatics.smartcapture.feature.depth_check.ARBoundaryOverlay
 import com.videonatics.smartcapture.ui.BoundaryOverlay
 import com.videonatics.smartcapture.ui.CameraHelperGuild
 import com.videonatics.smartcapture.ui.DetectionStatus
@@ -27,6 +28,7 @@ import com.videonatics.smartcapture.ui.DetectionStatus
 @Composable
 fun HybridCameraScreen(padding: PaddingValues,
                        isDepthDetectionEnabled: Boolean,
+                       isDepthScanning: Boolean,
                        captureTrigger: Boolean,
                        onImageCaptured: (ByteArray) -> Unit,
                        onCapturedImageStream:(Bitmap) -> Unit,
@@ -118,11 +120,16 @@ fun HybridCameraScreen(padding: PaddingValues,
 //            //Text(backendStatus, color = Color.Green)
 //        }
 
-        BoundaryOverlay(
-            detectedBox = detectedBox,
-            status = status,
-            cameraHelperGuild = cameraHelperGuild
-        )
+        if(isDepthScanning){
+            ARBoundaryOverlay()
+        }else{
+            BoundaryOverlay(
+                detectedBox = detectedBox,
+                status = status,
+                cameraHelperGuild = cameraHelperGuild
+            )
+        }
+
 
     }
 }

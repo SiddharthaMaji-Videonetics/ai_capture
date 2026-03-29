@@ -58,6 +58,7 @@ dependencies {
     implementation(libs.mlkit.text.recognition)
     implementation(libs.mlkit.`object`.detection)
     implementation(libs.mlkit.`object`.detection.custom)
+    implementation(libs.androidx.compose.ui.graphics)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
