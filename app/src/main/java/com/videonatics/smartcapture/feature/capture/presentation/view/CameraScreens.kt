@@ -3,6 +3,12 @@ package com.videonatics.smartcapture.feature.capture.presentation.view
 import android.graphics.Bitmap
 import android.graphics.Rect
 import android.util.Log
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -120,7 +126,20 @@ fun HybridCameraScreen(padding: PaddingValues,
 //            //Text(backendStatus, color = Color.Green)
 //        }
 
-        if(isDepthScanning){
+        AnimatedContent (isDepthScanning,
+            transitionSpec = {
+                fadeIn(
+                    animationSpec = tween(
+                        durationMillis = 800,
+                        easing = FastOutSlowInEasing
+                    )
+                ) togetherWith fadeOut(
+                    animationSpec = tween(
+                        durationMillis = 800
+                    )
+                )
+            }){state ->
+            if(state){
             ARBoundaryOverlay()
         }else{
             BoundaryOverlay(
@@ -128,6 +147,7 @@ fun HybridCameraScreen(padding: PaddingValues,
                 status = status,
                 cameraHelperGuild = cameraHelperGuild
             )
+        }
         }
 
 
