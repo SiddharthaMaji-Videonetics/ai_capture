@@ -6,6 +6,7 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.ImageFormat
 import android.graphics.Matrix
+import android.graphics.PointF
 import android.graphics.Rect
 import android.graphics.RectF
 import android.graphics.YuvImage
@@ -931,24 +932,38 @@ suspend fun processImage(bitmap: Bitmap): List<OcrBox> =
                 val results = mutableListOf<OcrBox>()
                 var id = 0
 
+                val w = bitmap.width.toFloat()
+                val h = bitmap.height.toFloat()
+
                 visionText.textBlocks.forEach { block ->
                     block.lines.forEach { line ->
                         line.elements.forEach { element ->
 
-                            element.boundingBox?.let { rect ->
+                            val rect = element.boundingBox
+                            val points = element.cornerPoints
 
-                                val normalized = RectF(
-                                    rect.left / bitmap.width.toFloat(),
-                                    rect.top / bitmap.height.toFloat(),
-                                    rect.right / bitmap.width.toFloat(),
-                                    rect.bottom / bitmap.height.toFloat()
+                            if (rect != null && points != null && points.size == 4) {
+
+                                val normalizedRect = RectF(
+                                    rect.left / w,
+                                    rect.top / h,
+                                    rect.right / w,
+                                    rect.bottom / h
                                 )
+
+                                val normalizedPoints = points.map {
+                                    PointF(
+                                        it.x / w,
+                                        it.y / h
+                                    )
+                                }
 
                                 results.add(
                                     OcrBox(
                                         id = id++,
                                         text = element.text,
-                                        rect = normalized
+                                        rect = normalizedRect,
+                                        cornerPoints = normalizedPoints
                                     )
                                 )
                             }

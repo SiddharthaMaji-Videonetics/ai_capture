@@ -1,5 +1,6 @@
 package com.videonatics.smartcapture.core.presentation.view.components
 
+import android.graphics.PointF
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -23,6 +24,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.PaintingStyle
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
@@ -243,7 +245,6 @@ fun PixelPerfectOCRViewer(
             .background(Color.Black)
             .clipToBounds()
     ) {
-
         val containerW = constraints.maxWidth.toFloat()
         val containerH = constraints.maxHeight.toFloat()
 
@@ -259,16 +260,42 @@ fun PixelPerfectOCRViewer(
         val imageOffsetY = (containerH - displayH) / 2f
 
         val transformState = rememberTransformableState { zoom, pan, _ ->
-
             val newScale = (scale * zoom).coerceIn(1f, 5f)
-
             val isZooming = zoom != 1f
-
             scale = newScale
+            if (!isZooming) offset += pan
+        }
 
-            if (!isZooming) {
-                offset += pan
+        fun mapToImageSpace(tap: Offset): Offset {
+            val translatedX = tap.x - offset.x
+            val translatedY = tap.y - offset.y
+
+            val scaledX = translatedX / scale
+            val scaledY = translatedY / scale
+
+            val x = (scaledX - imageOffsetX) / displayW
+            val y = (scaledY - imageOffsetY) / displayH
+
+            return Offset(x, y)
+        }
+
+        fun isInside(x: Float, y: Float, points: List<PointF>): Boolean {
+            var inside = false
+            var j = points.lastIndex
+
+            for (i in points.indices) {
+                val xi = points[i].x
+                val yi = points[i].y
+                val xj = points[j].x
+                val yj = points[j].y
+
+                val intersect = ((yi > y) != (yj > y)) &&
+                        (x < (xj - xi) * (y - yi) / (yj - yi + 0.00001f) + xi)
+
+                if (intersect) inside = !inside
+                j = i
             }
+            return inside
         }
 
         Box(
@@ -277,19 +304,10 @@ fun PixelPerfectOCRViewer(
                 .transformable(transformState)
                 .pointerInput(scale, offset) {
                     detectTapGestures { tap ->
+                        val p = mapToImageSpace(tap)
 
-                        val translatedX = tap.x - offset.x
-                        val translatedY = tap.y - offset.y
-
-                        val scaledX = translatedX / scale
-                        val scaledY = translatedY / scale
-
-                        val x = (scaledX - imageOffsetX) / displayW
-                        val y = (scaledY - imageOffsetY) / displayH
-
-                        val tappedId = ocrBoxes.find {
-                            x in it.rect.left..it.rect.right &&
-                                    y in it.rect.top..it.rect.bottom
+                        val tappedId = ocrBoxes.find { box ->
+                            isInside(p.x, p.y, box.cornerPoints)
                         }?.id
 
                         tappedId?.let { id ->
@@ -300,11 +318,10 @@ fun PixelPerfectOCRViewer(
                             }
                         }
 
-                        onSelectedOcrIds.invoke(selectedIds.toList())
+                        onSelectedOcrIds(selectedIds.toList())
                     }
                 }
         ) {
-
             Box(
                 modifier = Modifier.graphicsLayer {
                     transformOrigin = TransformOrigin(0f, 0f)
@@ -314,7 +331,6 @@ fun PixelPerfectOCRViewer(
                     translationY = offset.y
                 }
             ) {
-
                 Image(
                     bitmap = bitmap,
                     contentDescription = null,
@@ -323,31 +339,37 @@ fun PixelPerfectOCRViewer(
                 )
 
                 Canvas(modifier = Modifier.fillMaxSize()) {
+                    fun mapX(x: Float) = x * displayW + imageOffsetX
+                    fun mapY(y: Float) = y * displayH + imageOffsetY
 
                     ocrBoxes.forEach { box ->
+                        if (box.cornerPoints.size != 4) return@forEach
+
+                        val path = Path().apply {
+                            val p0 = box.cornerPoints[0]
+                            val p1 = box.cornerPoints[1]
+                            val p2 = box.cornerPoints[2]
+                            val p3 = box.cornerPoints[3]
+
+                            moveTo(mapX(p0.x), mapY(p0.y))
+                            lineTo(mapX(p1.x), mapY(p1.y))
+                            lineTo(mapX(p2.x), mapY(p2.y))
+                            lineTo(mapX(p3.x), mapY(p3.y))
+                            close()
+                        }
 
                         val isSelected = selectedIds.contains(box.id)
 
-                        val left = box.rect.left * displayW + imageOffsetX
-                        val top = box.rect.top * displayH + imageOffsetY
-                        val right = box.rect.right * displayW + imageOffsetX
-                        val bottom = box.rect.bottom * displayH + imageOffsetY
-
-                        val width = right - left
-                        val height = bottom - top
-
                         if (isSelected) {
-                            drawRect(
-                                Color(0xFF008606).copy(alpha = 0.3f),
-                                Offset(left, top),
-                                Size(width, height)
+                            drawPath(
+                                path = path,
+                                color = Color(0xFF008606).copy(alpha = 0.3f)
                             )
                         }
 
-                        drawRect(
+                        drawPath(
+                            path = path,
                             color = if (isSelected) Color(0xFF008606) else Color.Red,
-                            topLeft = Offset(left, top),
-                            size = Size(width, height),
                             style = Stroke(width = 3f)
                         )
                     }
