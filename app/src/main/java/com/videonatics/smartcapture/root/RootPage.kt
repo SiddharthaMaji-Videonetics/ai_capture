@@ -14,6 +14,7 @@ import com.videonatics.smartcapture.feature.capture.presentation.view.CameraCapt
 import com.videonatics.smartcapture.feature.depth_check.ARFlatnessScreen
 import com.videonatics.smartcapture.feature.home.presentation.view.HomePage
 import com.videonatics.smartcapture.feature.imagedetails.presentation.view.ImageDetailsPage
+import com.videonatics.smartcapture.feature.ocr.presentation.view.OcrSelectorPage
 import com.videonatics.smartcapture.feature.settings.presentation.view.SettingsPage
 import com.videonatics.smartcapture.feature.splash.SplashScreen
 import com.videonatics.smartcapture.ui.theme.ThemeMode
@@ -67,6 +68,15 @@ fun RootPage(onThemeSwitch: (ThemeMode) -> Unit) {
 
                 }
             }
+            composable(PageRoute.OCR_SELECT.name) {
+                val parentEntry = remember(it) {
+                    navController.getBackStackEntry("main_graph")
+                }
+                val sharedViewModel: SharedCaptureViewModel =
+                    hiltViewModel(parentEntry)
+                OcrSelectorPage(navController, sharedViewModel)
+            }
+
             composable(PageRoute.IMAGE_DETAILS.name) {
                 val parentEntry = remember(it) {
                     navController.getBackStackEntry("main_graph")
@@ -94,5 +104,5 @@ fun RootPage(onThemeSwitch: (ThemeMode) -> Unit) {
 }
 
 enum class PageRoute{
-    SPLASH,HOME, CAPTURE,IMAGE_DETAILS, SETTINGS, DEPTH_CHECK
+    SPLASH,HOME, CAPTURE,IMAGE_DETAILS, SETTINGS, DEPTH_CHECK, OCR_SELECT
 }

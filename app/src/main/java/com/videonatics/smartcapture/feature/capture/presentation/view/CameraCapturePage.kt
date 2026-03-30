@@ -93,7 +93,7 @@ fun CameraCapturePage(navController: NavController,
                 }
             }
         }else{
-            navController.navigate(PageRoute.IMAGE_DETAILS.name){
+            navController.navigate(PageRoute.OCR_SELECT.name){
                 popUpTo(PageRoute.CAPTURE.name){
                     inclusive = true
                 }
