@@ -23,6 +23,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.PaintingStyle
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.nativeCanvas
@@ -79,21 +80,13 @@ fun ZoomableImageWithSelectableOCR(
 
     var scale by remember { mutableStateOf(1f) }
     var offset by remember { mutableStateOf(Offset.Zero) }
-
     var selectedId by remember { mutableStateOf<Int?>(null) }
-
-    val state = rememberTransformableState { zoomChange, panChange, _ ->
-        val newScale = (scale * zoomChange).coerceIn(minScale, maxScale)
-        offset += panChange * newScale
-        scale = newScale
-    }
 
     BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
             .clipToBounds()
             .background(Color.Black)
-            .transformable(state)
     ) {
 
         val containerWidth = constraints.maxWidth.toFloat()
@@ -104,39 +97,55 @@ fun ZoomableImageWithSelectableOCR(
 
         val baseScale = containerWidth / imageWidth
 
-        val scaledImageWidth = imageWidth * baseScale * scale
-        val scaledImageHeight = imageHeight * baseScale * scale
+        val state = rememberTransformableState { zoomChange, panChange, _ ->
 
-        val maxX = maxOf(0f, (scaledImageWidth - containerWidth) / 2f)
-        val maxY = maxOf(0f, (scaledImageHeight - containerHeight) / 2f)
+            val newScale = (scale * zoomChange).coerceIn(minScale, maxScale)
 
-        offset = Offset(
-            x = offset.x.coerceIn(-maxX, maxX),
-            y = offset.y.coerceIn(-maxY, maxY)
-        )
+            val scaledImageWidth = imageWidth * baseScale * newScale
+            val scaledImageHeight = imageHeight * baseScale * newScale
 
-        //  Gesture detection for taps
+            val maxX = maxOf(0f, (scaledImageWidth - containerWidth) / 2f)
+            val maxY = maxOf(0f, (scaledImageHeight - containerHeight) / 2f)
+
+            val newOffset = offset + (panChange * newScale)
+
+            offset = Offset(
+                x = newOffset.x.coerceIn(-maxX, maxX),
+                y = newOffset.y.coerceIn(-maxY, maxY)
+            )
+
+            scale = newScale
+        }
+
         Box(
             modifier = Modifier
                 .fillMaxSize()
+                .transformable(state)
                 .pointerInput(scale, offset) {
                     detectTapGestures { tap ->
 
-                        // Convert tap -> image coordinate space
-                        val adjustedX = (tap.x - offset.x) / scale
-                        val adjustedY = (tap.y - offset.y) / scale
+                        // Convert screen → image coordinates
 
-                        val mappedX = adjustedX / baseScale
-                        val mappedY = adjustedY / baseScale
+                        val x1 = tap.x - offset.x
+                        val y1 = tap.y - offset.y
 
-                        // Find clicked box
+                        val x2 = x1 / scale
+                        val y2 = y1 / scale
+
+                        val imageX = x2 / baseScale
+                        val imageY = y2 / baseScale
+
+                        val finalX = imageX
+                        val finalY = imageY
+
                         selectedId = ocrBoxes.find {
-                            it.rect.contains(Offset(mappedX, mappedY))
+                            it.rect.contains(finalX, finalY)
                         }?.id
                     }
                 }
         ) {
 
+            // TRANSFORMATION LAYER
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -148,7 +157,7 @@ fun ZoomableImageWithSelectableOCR(
                     }
             ) {
 
-                //  Image
+                // Image
                 Image(
                     bitmap = bitmap,
                     contentDescription = null,
@@ -156,22 +165,22 @@ fun ZoomableImageWithSelectableOCR(
                     modifier = Modifier.fillMaxSize()
                 )
 
-                //  OCR Overlay
+                // OCR Overlay
                 Canvas(modifier = Modifier.fillMaxSize()) {
-
-                    val scaleX = size.width / imageWidth
-                    val scaleY = size.height / imageHeight
 
                     ocrBoxes.forEach { box ->
 
-                        val left = box.rect.left * scaleX
-                        val top = box.rect.top * scaleY
-                        val width = box.rect.width * scaleX
-                        val height = box.rect.height * scaleY
-
                         val isSelected = box.id == selectedId
 
-                        //  Highlight background when selected
+                        val left = box.rect.left * baseScale
+                        val top = box.rect.top * baseScale
+                        val right = box.rect.right * baseScale
+                        val bottom = box.rect.bottom * baseScale
+
+                        val width = right - left
+                        val height = bottom - top
+
+                        // Selected background
                         if (isSelected) {
                             drawRect(
                                 color = Color.Yellow.copy(alpha = 0.4f),
@@ -189,13 +198,15 @@ fun ZoomableImageWithSelectableOCR(
                         )
 
                         // Text background
+                        val textBgHeight = 36f
+
                         drawRect(
                             color = if (isSelected)
                                 Color(0xFF333300)
                             else
                                 Color(0xAA000000),
-                            topLeft = Offset(left, top - 36f),
-                            size = Size(width, 36f)
+                            topLeft = Offset(left, top - textBgHeight),
+                            size = Size(width, textBgHeight)
                         )
 
                         // Text
@@ -208,6 +219,136 @@ fun ZoomableImageWithSelectableOCR(
                                 textSize = 28f
                                 isAntiAlias = true
                             }
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun PixelPerfectOCRViewer(
+    bitmap: ImageBitmap,
+    ocrBoxes: List<OcrBox>,
+    onSelectedOcrIds: (List<Int>) -> Unit
+) {
+    var scale by remember { mutableStateOf(1f) }
+    var offset by remember { mutableStateOf(Offset.Zero) }
+    var selectedIds by remember { mutableStateOf(setOf<Int>()) }
+
+    BoxWithConstraints(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black)
+            .clipToBounds()
+    ) {
+
+        val containerW = constraints.maxWidth.toFloat()
+        val containerH = constraints.maxHeight.toFloat()
+
+        val imgW = bitmap.width.toFloat()
+        val imgH = bitmap.height.toFloat()
+
+        val fitScale = minOf(containerW / imgW, containerH / imgH)
+
+        val displayW = imgW * fitScale
+        val displayH = imgH * fitScale
+
+        val imageOffsetX = (containerW - displayW) / 2f
+        val imageOffsetY = (containerH - displayH) / 2f
+
+        val transformState = rememberTransformableState { zoom, pan, _ ->
+
+            val newScale = (scale * zoom).coerceIn(1f, 5f)
+
+            val isZooming = zoom != 1f
+
+            scale = newScale
+
+            if (!isZooming) {
+                offset += pan
+            }
+        }
+
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .transformable(transformState)
+                .pointerInput(scale, offset) {
+                    detectTapGestures { tap ->
+
+                        val translatedX = tap.x - offset.x
+                        val translatedY = tap.y - offset.y
+
+                        val scaledX = translatedX / scale
+                        val scaledY = translatedY / scale
+
+                        val x = (scaledX - imageOffsetX) / displayW
+                        val y = (scaledY - imageOffsetY) / displayH
+
+                        val tappedId = ocrBoxes.find {
+                            x in it.rect.left..it.rect.right &&
+                                    y in it.rect.top..it.rect.bottom
+                        }?.id
+
+                        tappedId?.let { id ->
+                            selectedIds = if (selectedIds.contains(id)) {
+                                selectedIds - id
+                            } else {
+                                selectedIds + id
+                            }
+                        }
+
+                        onSelectedOcrIds.invoke(selectedIds.toList())
+                    }
+                }
+        ) {
+
+            Box(
+                modifier = Modifier.graphicsLayer {
+                    transformOrigin = TransformOrigin(0f, 0f)
+                    scaleX = scale
+                    scaleY = scale
+                    translationX = offset.x
+                    translationY = offset.y
+                }
+            ) {
+
+                Image(
+                    bitmap = bitmap,
+                    contentDescription = null,
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier.fillMaxSize()
+                )
+
+                Canvas(modifier = Modifier.fillMaxSize()) {
+
+                    ocrBoxes.forEach { box ->
+
+                        val isSelected = selectedIds.contains(box.id)
+
+                        val left = box.rect.left * displayW + imageOffsetX
+                        val top = box.rect.top * displayH + imageOffsetY
+                        val right = box.rect.right * displayW + imageOffsetX
+                        val bottom = box.rect.bottom * displayH + imageOffsetY
+
+                        val width = right - left
+                        val height = bottom - top
+
+                        if (isSelected) {
+                            drawRect(
+                                Color(0xFF008606).copy(alpha = 0.3f),
+                                Offset(left, top),
+                                Size(width, height)
+                            )
+                        }
+
+                        drawRect(
+                            color = if (isSelected) Color(0xFF008606) else Color.Red,
+                            topLeft = Offset(left, top),
+                            size = Size(width, height),
+                            style = Stroke(width = 3f)
                         )
                     }
                 }

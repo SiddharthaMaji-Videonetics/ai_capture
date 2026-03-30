@@ -14,15 +14,25 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Rect
-import androidx.compose.ui.graphics.ImageBitmap
+import android.graphics.Rect
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.material3.BottomAppBar
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.navigation.NavController
+import com.videonatics.smartcapture.core.byteArrayToBitmap
 import com.videonatics.smartcapture.core.domain.model.OcrBox
+import com.videonatics.smartcapture.core.presentation.view.components.PixelPerfectOCRViewer
 import com.videonatics.smartcapture.core.presentation.view.components.ZoomableImageWithSelectableOCR
 import com.videonatics.smartcapture.core.presentation.viewmodel.SharedCaptureViewModel
-import com.videonatics.smartcapture.feature.capture.presentation.view.CameraCapturePageComponent
+import com.videonatics.smartcapture.feature.ocr.presentation.viewmodel.OcrViewModel
 import com.videonatics.smartcapture.root.PageRoute
 import com.videonatics.smartcapture.ui.theme.SmartCaptureTheme
 
@@ -32,8 +42,21 @@ fun OcrSelectorPage(
     sharedViewModel : SharedCaptureViewModel
 ) {
     //val imageBytes = sharedViewModel.capturedImage
-    val fullCapturedImage = sharedViewModel.capturedFullImage
-    return OcrSelectorPageComponent(fullCapturedImage){
+    val viewModel = hiltViewModel<OcrViewModel>()
+    val capturedImageArray = sharedViewModel.capturedImage
+    var ocrList by remember { mutableStateOf<List<OcrBox>>(emptyList()) }
+    var capturedImage by remember { mutableStateOf<Bitmap?>(null) }
+
+    LaunchedEffect(capturedImageArray) {
+        capturedImageArray?.apply {
+            capturedImage = byteArrayToBitmap(capturedImageArray)
+           viewModel.getOcrFromInputImage(byteArrayToBitmap(capturedImageArray)){
+                ocrList = it
+            }
+        }
+
+    }
+    return OcrSelectorPageComponent(capturedImage, ocrList){
         navController.navigate(PageRoute.CAPTURE.name) {
             popUpTo(PageRoute.IMAGE_DETAILS.name) { inclusive = true }
         }
@@ -42,44 +65,12 @@ fun OcrSelectorPage(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun OcrSelectorPageComponent(img: Bitmap? = null, onBack: () -> Unit) {
-    val sampleOCR = listOf(
-        OcrBox(
-            id = 1,
-            text = "Hello World",
-            rect = Rect(100f, 200f, 500f, 300f)
-        ),
-        OcrBox(
-            id = 2,
-            text = "Jetpack Compose",
-            rect = Rect(120f, 350f, 700f, 450f)
-        ),
-        OcrBox(
-            id = 3,
-            text = "OCR Detection",
-            rect = Rect(200f, 550f, 800f, 650f)
-        ),
-        OcrBox(
-            id = 4,
-            text = "Bounding Box",
-            rect = Rect(150f, 750f, 650f, 850f)
-        ),
-        OcrBox(
-            id = 5,
-            text = "Zoom + Pan Test",
-            rect = Rect(100f, 950f, 900f, 1050f)
-        ),
-        OcrBox(
-            id = 6,
-            text = "Small Text",
-            rect = Rect(50f, 1100f, 300f, 1150f)
-        ),
-        OcrBox(
-            id = 7,
-            text = "Bottom Area",
-            rect = Rect(200f, 1500f, 800f, 1600f)
-        )
-    )
+fun OcrSelectorPageComponent(img: Bitmap? = null,
+                             ocrBoxes: List<OcrBox> = emptyList(),
+                             onBack: () -> Unit) {
+
+    var selectedOcrItmCount by remember { mutableStateOf(0) }
+
     return Scaffold(
         topBar = {
             TopAppBar(
@@ -100,7 +91,20 @@ fun OcrSelectorPageComponent(img: Bitmap? = null, onBack: () -> Unit) {
                     }
 
                 },
+
             )
+
+        },
+        bottomBar = {
+            BottomAppBar() {
+                Box (
+                    modifier = Modifier.fillMaxWidth()
+
+                ){
+                    Text("Selected Items: ${selectedOcrItmCount}/${ocrBoxes.size}",
+                        modifier = Modifier.align(androidx.compose.ui.Alignment.Center))
+                }
+            }
         }
     ) {
         Box(
@@ -109,10 +113,12 @@ fun OcrSelectorPageComponent(img: Bitmap? = null, onBack: () -> Unit) {
         ){
             AnimatedVisibility(visible = img != null) {
                 img?.let {
-                    ZoomableImageWithSelectableOCR(
+                    PixelPerfectOCRViewer(
                         bitmap = it.asImageBitmap(),
-                        ocrBoxes = sampleOCR
-                    )
+                        ocrBoxes = ocrBoxes
+                    ){selectedOcrIds ->
+                        selectedOcrItmCount = selectedOcrIds.distinct().size
+                    }
                 }
             }
         }

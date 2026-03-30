@@ -24,11 +24,15 @@ import com.google.ar.core.Session
 import com.google.ar.core.TrackingState
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.objects.DetectedObject
+import com.google.mlkit.vision.text.TextRecognition
+import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import com.videonatics.smartcapture.core.ar_core.ARCoreManager
 import com.videonatics.smartcapture.core.domain.model.Detection
 import com.videonatics.smartcapture.core.domain.model.Instruction
+import com.videonatics.smartcapture.core.domain.model.OcrBox
 import com.videonatics.smartcapture.feature.capture.domain.model.ARFrameHolder
 import com.videonatics.smartcapture.ui.BoundaryPercent
+import kotlinx.coroutines.suspendCancellableCoroutine
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.toRequestBody
@@ -46,6 +50,7 @@ import org.tensorflow.lite.support.tensorbuffer.TensorBuffer
 import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import kotlin.coroutines.resumeWithException
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
@@ -913,3 +918,47 @@ fun computeRange(values: List<Int>): Int {
     if (values.isEmpty()) return 0
     return values.maxOrNull()!! - values.minOrNull()!!
 }
+
+suspend fun processImage(bitmap: Bitmap): List<OcrBox> =
+    suspendCancellableCoroutine { cont ->
+
+        val image = InputImage.fromBitmap(bitmap, 0)
+
+        TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
+            .process(image)
+            .addOnSuccessListener { visionText ->
+
+                val results = mutableListOf<OcrBox>()
+                var id = 0
+
+                visionText.textBlocks.forEach { block ->
+                    block.lines.forEach { line ->
+                        line.elements.forEach { element ->
+
+                            element.boundingBox?.let { rect ->
+
+                                val normalized = RectF(
+                                    rect.left / bitmap.width.toFloat(),
+                                    rect.top / bitmap.height.toFloat(),
+                                    rect.right / bitmap.width.toFloat(),
+                                    rect.bottom / bitmap.height.toFloat()
+                                )
+
+                                results.add(
+                                    OcrBox(
+                                        id = id++,
+                                        text = element.text,
+                                        rect = normalized
+                                    )
+                                )
+                            }
+                        }
+                    }
+                }
+
+                if (cont.isActive) cont.resume(results, null)
+            }
+            .addOnFailureListener {
+                if (cont.isActive) cont.resumeWithException(it)
+            }
+    }

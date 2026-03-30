@@ -1,10 +1,10 @@
 package com.videonatics.smartcapture.core.domain.model
 
-import androidx.compose.ui.geometry.Rect
+import android.graphics.RectF
 
 
 data class OcrBox(
     val id: Int,
     val text: String,
-    val rect: Rect
+    val rect: RectF
 )

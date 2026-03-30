@@ -112,7 +112,7 @@ fun CameraCapturePageComponent(sharedViewModel: SharedCaptureViewModel? = null, 
     var isTooMuchTilt by remember { mutableStateOf(false) }
     var installArCorePrompt by remember { mutableStateOf(false) }
     var isDepthScanning by remember { mutableStateOf(false) }
-    val noOfConfirmation = 5
+    val noOfConfirmation = 1
     var object3dConfirmationCount by remember { mutableStateOf(noOfConfirmation) } //need to confirm 5 times side be side
 
 
@@ -131,7 +131,7 @@ fun CameraCapturePageComponent(sharedViewModel: SharedCaptureViewModel? = null, 
 
     LaunchedEffect(Unit) {
         lightSensorManager.start()
-        isDepthScanning = true
+        isDepthScanning = false
     }
 
     LaunchedEffect(lux) {

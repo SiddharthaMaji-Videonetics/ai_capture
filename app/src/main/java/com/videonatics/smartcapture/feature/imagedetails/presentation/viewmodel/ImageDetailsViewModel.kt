@@ -10,7 +10,6 @@ import com.videonatics.smartcapture.core.domain.model.Detection
 import com.videonatics.smartcapture.core.domain.repository.CoreRepository
 import com.videonatics.smartcapture.core.parseYOLO
 import com.videonatics.smartcapture.feature.imagedetails.domain.repository.ImageDetailsRepository
-import com.videonatics.smartcapture.ml.Yolov8nFloat32
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -21,22 +20,22 @@ class ImageDetailsViewModel @Inject constructor(
     private val repository: ImageDetailsRepository,
     private val coreRepository: CoreRepository
 ) : AndroidViewModel(application) {
-    private val detector = Yolov8nFloat32.newInstance(application)
+    //private val detector = Yolov8nFloat32.newInstance(application)
 
-    fun detect(bitmap: Bitmap): List<Detection> {
-
-        val outputs = detector.process(bitmapToTensor(bitmap))
-
-        val result = outputs.outputFeature0AsTensorBuffer
-
-        val detections = result.floatArray
-
-        return parseYOLO(
-            detections,
-            bitmap.width,
-            bitmap.height
-        )
-    }
+//    fun detect(bitmap: Bitmap): List<Detection> {
+//
+//        val outputs = detector.process(bitmapToTensor(bitmap))
+//
+//        val result = outputs.outputFeature0AsTensorBuffer
+//
+//        val detections = result.floatArray
+//
+//        return parseYOLO(
+//            detections,
+//            bitmap.width,
+//            bitmap.height
+//        )
+//    }
 
     init {
 
@@ -61,7 +60,7 @@ class ImageDetailsViewModel @Inject constructor(
     }
 
     override fun onCleared() {
-        detector.close()
+       // detector.close()
         super.onCleared()
     }
 
@@ -69,86 +68,86 @@ class ImageDetailsViewModel @Inject constructor(
         return coreRepository.getOfflineAnalysis()
     }
 
-    val labels = listOf(
-        "person",
-        "bicycle",
-        "car",
-        "motorcycle",
-        "airplane",
-        "bus",
-        "train",
-        "truck",
-        "boat",
-        "traffic light",
-        "fire hydrant",
-        "stop sign",
-        "parking meter",
-        "bench",
-        "bird",
-        "cat",
-        "dog",
-        "horse",
-        "sheep",
-        "cow",
-        "elephant",
-        "bear",
-        "zebra",
-        "giraffe",
-        "backpack",
-        "umbrella",
-        "handbag",
-        "tie",
-        "suitcase",
-        "frisbee",
-        "skis",
-        "snowboard",
-        "sports ball",
-        "kite",
-        "baseball bat",
-        "baseball glove",
-        "skateboard",
-        "surfboard",
-        "tennis racket",
-        "bottle",
-        "wine glass",
-        "cup",
-        "fork",
-        "knife",
-        "spoon",
-        "bowl",
-        "banana",
-        "apple",
-        "sandwich",
-        "orange",
-        "broccoli",
-        "carrot",
-        "hot dog",
-        "pizza",
-        "donut",
-        "cake",
-        "chair",
-        "couch",
-        "potted plant",
-        "bed",
-        "dining table",
-        "toilet",
-        "tv",
-        "laptop",
-        "mouse",
-        "remote",
-        "keyboard",
-        "cell phone",
-        "microwave",
-        "oven",
-        "toaster",
-        "sink",
-        "refrigerator",
-        "book",
-        "clock",
-        "vase",
-        "scissors",
-        "teddy bear",
-        "hair drier",
-        "toothbrush"
-    )
+//    val labels = listOf(
+//        "person",
+//        "bicycle",
+//        "car",
+//        "motorcycle",
+//        "airplane",
+//        "bus",
+//        "train",
+//        "truck",
+//        "boat",
+//        "traffic light",
+//        "fire hydrant",
+//        "stop sign",
+//        "parking meter",
+//        "bench",
+//        "bird",
+//        "cat",
+//        "dog",
+//        "horse",
+//        "sheep",
+//        "cow",
+//        "elephant",
+//        "bear",
+//        "zebra",
+//        "giraffe",
+//        "backpack",
+//        "umbrella",
+//        "handbag",
+//        "tie",
+//        "suitcase",
+//        "frisbee",
+//        "skis",
+//        "snowboard",
+//        "sports ball",
+//        "kite",
+//        "baseball bat",
+//        "baseball glove",
+//        "skateboard",
+//        "surfboard",
+//        "tennis racket",
+//        "bottle",
+//        "wine glass",
+//        "cup",
+//        "fork",
+//        "knife",
+//        "spoon",
+//        "bowl",
+//        "banana",
+//        "apple",
+//        "sandwich",
+//        "orange",
+//        "broccoli",
+//        "carrot",
+//        "hot dog",
+//        "pizza",
+//        "donut",
+//        "cake",
+//        "chair",
+//        "couch",
+//        "potted plant",
+//        "bed",
+//        "dining table",
+//        "toilet",
+//        "tv",
+//        "laptop",
+//        "mouse",
+//        "remote",
+//        "keyboard",
+//        "cell phone",
+//        "microwave",
+//        "oven",
+//        "toaster",
+//        "sink",
+//        "refrigerator",
+//        "book",
+//        "clock",
+//        "vase",
+//        "scissors",
+//        "teddy bear",
+//        "hair drier",
+//        "toothbrush"
+//    )
 }
