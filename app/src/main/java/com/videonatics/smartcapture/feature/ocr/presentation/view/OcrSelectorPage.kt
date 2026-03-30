@@ -22,8 +22,10 @@ import androidx.compose.material.icons.filled.NavigateNext
 import androidx.compose.material3.BottomAppBar
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -36,10 +38,12 @@ import com.videonatics.smartcapture.core.domain.model.OcrBox
 import com.videonatics.smartcapture.core.presentation.view.components.PixelPerfectOCRViewer
 import com.videonatics.smartcapture.core.presentation.view.components.ZoomableImageWithSelectableOCR
 import com.videonatics.smartcapture.core.presentation.viewmodel.SharedCaptureViewModel
+import com.videonatics.smartcapture.feature.ocr.presentation.view.components.OcrEditBottomSheet
 import com.videonatics.smartcapture.feature.ocr.presentation.viewmodel.OcrViewModel
 import com.videonatics.smartcapture.root.PageRoute
 import com.videonatics.smartcapture.ui.theme.SmartCaptureTheme
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun OcrSelectorPage(
     navController: NavController,
@@ -50,6 +54,10 @@ fun OcrSelectorPage(
     val capturedImageArray = sharedViewModel.capturedImage
     var ocrList by remember { mutableStateOf<List<OcrBox>>(emptyList()) }
     var capturedImage by remember { mutableStateOf<Bitmap?>(null) }
+
+
+
+
 
     LaunchedEffect(capturedImageArray) {
         capturedImageArray?.apply {
@@ -73,8 +81,14 @@ fun OcrSelectorPageComponent(img: Bitmap? = null,
                              ocrBoxes: List<OcrBox> = emptyList(),
                              onBack: () -> Unit) {
 
-    var selectedOcrItmCount by remember { mutableStateOf(0) }
+    var selectedOcrItmCount by remember { mutableIntStateOf(0) }
+    var editOcrBottomSheet by remember { mutableStateOf(false) }
 
+    val ocrEditBottomSheetState = rememberModalBottomSheetState(
+        skipPartiallyExpanded = true
+    )
+
+    var ocrFullString = ""
     return Scaffold(
         topBar = {
             TopAppBar(
@@ -127,7 +141,7 @@ fun OcrSelectorPageComponent(img: Bitmap? = null,
                             Text("Edit OCR")
                         },
                         onClick = {
-
+                            editOcrBottomSheet = true
                         }
                     )
                 }else{
@@ -160,8 +174,29 @@ fun OcrSelectorPageComponent(img: Bitmap? = null,
                         bitmap = it.asImageBitmap(),
                         ocrBoxes = ocrBoxes
                     ){selectedOcrIds ->
-                        selectedOcrItmCount = selectedOcrIds.distinct().size
+                        val selectedIdSet = selectedOcrIds.toHashSet()
+
+                        selectedOcrItmCount = selectedIdSet.size
+
+                        val selectedOcrBoxes = ocrBoxes.filter {box -> box.id in selectedIdSet }
+
+                        ocrFullString = buildString {
+                            selectedOcrBoxes.forEachIndexed { index, box ->
+                                if (index > 0) append(" ")
+                                append(box.text)
+                            }
+                        }
                     }
+                }
+            }
+
+            if(editOcrBottomSheet) {
+                OcrEditBottomSheet(ocrEditBottomSheetState,
+                    ocrFullString,
+                    onEditedOcr = {
+                        editOcrBottomSheet = false
+                }){
+                    editOcrBottomSheet = false
                 }
             }
         }
