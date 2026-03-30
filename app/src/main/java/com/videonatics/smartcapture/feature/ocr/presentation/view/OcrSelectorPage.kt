@@ -16,10 +16,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import android.graphics.Rect
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.NavigateNext
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.BasicAlertDialog
 import androidx.compose.material3.BottomAppBar
+import androidx.compose.material3.Card
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -31,6 +36,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.videonatics.smartcapture.core.byteArrayToBitmap
@@ -54,7 +60,7 @@ fun OcrSelectorPage(
     val capturedImageArray = sharedViewModel.capturedImage
     var ocrList by remember { mutableStateOf<List<OcrBox>>(emptyList()) }
     var capturedImage by remember { mutableStateOf<Bitmap?>(null) }
-
+    var isOcrLoaded by remember { mutableStateOf(false) }
 
 
 
@@ -64,11 +70,12 @@ fun OcrSelectorPage(
             capturedImage = byteArrayToBitmap(capturedImageArray)
            viewModel.getOcrFromInputImage(byteArrayToBitmap(capturedImageArray)){
                 ocrList = it
+               isOcrLoaded = true
             }
         }
 
     }
-    return OcrSelectorPageComponent(capturedImage, ocrList){
+    return OcrSelectorPageComponent(capturedImage, ocrList,isOcrLoaded ){
         navController.navigate(PageRoute.CAPTURE.name) {
             popUpTo(PageRoute.IMAGE_DETAILS.name) { inclusive = true }
         }
@@ -79,7 +86,9 @@ fun OcrSelectorPage(
 @Composable
 fun OcrSelectorPageComponent(img: Bitmap? = null,
                              ocrBoxes: List<OcrBox> = emptyList(),
+                             isOcrLoaded: Boolean = false,
                              onBack: () -> Unit) {
+
 
     var selectedOcrItmCount by remember { mutableIntStateOf(0) }
     var editOcrBottomSheet by remember { mutableStateOf(false) }
@@ -89,6 +98,7 @@ fun OcrSelectorPageComponent(img: Bitmap? = null,
     )
 
     var ocrFullString = ""
+
     return Scaffold(
         topBar = {
             TopAppBar(
@@ -114,15 +124,18 @@ fun OcrSelectorPageComponent(img: Bitmap? = null,
 
         },
         bottomBar = {
-            BottomAppBar() {
-                Box (
-                    modifier = Modifier.fillMaxWidth()
+            AnimatedVisibility(visible = ocrBoxes.isNotEmpty()) {
+                BottomAppBar() {
+                    Box (
+                        modifier = Modifier.fillMaxWidth()
 
-                ){
-                    Text("Selected Items: ${selectedOcrItmCount}/${ocrBoxes.size}",
-                        modifier = Modifier.align(androidx.compose.ui.Alignment.Center))
+                    ){
+                        Text("Selected Items: ${selectedOcrItmCount}/${ocrBoxes.size}",
+                            modifier = Modifier.align(androidx.compose.ui.Alignment.Center))
+                    }
                 }
             }
+
         },
         floatingActionButton = {
             AnimatedContent(
@@ -174,6 +187,7 @@ fun OcrSelectorPageComponent(img: Bitmap? = null,
                         bitmap = it.asImageBitmap(),
                         ocrBoxes = ocrBoxes
                     ){selectedOcrIds ->
+
                         val selectedIdSet = selectedOcrIds.toHashSet()
 
                         selectedOcrItmCount = selectedIdSet.size
@@ -189,7 +203,6 @@ fun OcrSelectorPageComponent(img: Bitmap? = null,
                     }
                 }
             }
-
             if(editOcrBottomSheet) {
                 OcrEditBottomSheet(ocrEditBottomSheetState,
                     ocrFullString,
@@ -197,6 +210,27 @@ fun OcrSelectorPageComponent(img: Bitmap? = null,
                         editOcrBottomSheet = false
                 }){
                     editOcrBottomSheet = false
+                }
+            }
+            AnimatedVisibility(visible = !isOcrLoaded) {
+                BasicAlertDialog(onDismissRequest = {
+
+                }) {
+                    Card(
+                        modifier = Modifier.padding(8.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                        ) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.padding(8.dp)
+                            )
+                            Text(
+                                "Loading OCR...",
+                                modifier = Modifier.padding(8.dp)
+                            )
+                        }
+                    }
                 }
             }
         }
