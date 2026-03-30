@@ -15,8 +15,12 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import android.graphics.Rect
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.NavigateNext
 import androidx.compose.material3.BottomAppBar
+import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -105,6 +109,45 @@ fun OcrSelectorPageComponent(img: Bitmap? = null,
                         modifier = Modifier.align(androidx.compose.ui.Alignment.Center))
                 }
             }
+        },
+        floatingActionButton = {
+            AnimatedContent(
+                targetState = selectedOcrItmCount>0,
+                label = "Edit OCR"
+            ) {isEditOcr ->
+                if (isEditOcr) {
+                    ExtendedFloatingActionButton(
+                        icon = {
+                            Icon(
+                                imageVector = Icons.Default.Edit,
+                                contentDescription = "Edit OCR"
+                            )
+                        },
+                        text = {
+                            Text("Edit OCR")
+                        },
+                        onClick = {
+
+                        }
+                    )
+                }else{
+                    ExtendedFloatingActionButton(
+                        icon = {
+                            Icon(
+                                imageVector = Icons.Default.NavigateNext,
+                                contentDescription = "Next"
+                            )
+                        },
+                        text = {
+                            Text("Next")
+                        },
+                        onClick = {
+
+                        }
+                    )
+                }
+            }
+
         }
     ) {
         Box(
