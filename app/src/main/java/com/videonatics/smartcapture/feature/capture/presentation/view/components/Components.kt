@@ -1,6 +1,11 @@
 package com.videonatics.smartcapture.feature.capture.presentation.view.components
 
 import android.Manifest
+import android.content.Context
+import android.hardware.Sensor
+import android.hardware.SensorEvent
+import android.hardware.SensorEventListener
+import android.hardware.SensorManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
@@ -42,8 +47,11 @@ import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -97,6 +105,7 @@ fun LocationPermission(onGranted: () -> Unit) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DepthScanningBottomSheet(sheetState: SheetState,
+                             rotation: Float = 0f,
                       onDismiss: ()-> Unit, ) {
     val scope = rememberCoroutineScope()
     return ModalBottomSheet(
@@ -122,7 +131,7 @@ fun DepthScanningBottomSheet(sheetState: SheetState,
         ) {
 
             MotionSlider(
-                value = 0.5f,
+                value = rotation,
                 onValueChange = {},
                 onDirection = {},
                 seconds = 5,
@@ -265,6 +274,79 @@ fun MotionSlider(
         }
 
     }
+}
+
+@Composable
+fun rememberYaw(): State<Float> {
+
+    val context = LocalContext.current
+    val sensorManager = remember {
+        context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
+    }
+
+    val yawState = remember { mutableFloatStateOf(0.5f) }
+
+    DisposableEffect(Unit) {
+
+        val rotationMatrix = FloatArray(9)
+        val orientation = FloatArray(3)
+
+        val PI_F = Math.PI.toFloat()
+
+        var baseYaw: Float? = null
+
+        val listener = object : SensorEventListener {
+
+            override fun onSensorChanged(event: SensorEvent) {
+
+                if (event.sensor.type != Sensor.TYPE_ROTATION_VECTOR) return
+
+                SensorManager.getRotationMatrixFromVector(
+                    rotationMatrix,
+                    event.values
+                )
+
+                SensorManager.getOrientation(rotationMatrix, orientation)
+
+                val yaw = orientation[0]
+
+                if (baseYaw == null) {
+                    baseYaw = yaw
+                    return
+                }
+
+                var delta = yaw - baseYaw
+
+                if (delta > PI_F) delta -= (2 * PI_F)
+                if (delta < -PI_F) delta += (2 * PI_F)
+
+                val maxAngle = PI_F / 4f
+
+                val normalized = (delta / maxAngle)
+                    .coerceIn(-1f, 1f)
+
+                val target = 0.5f + (normalized * 0.5f)
+
+                yawState.floatValue += 0.1f * (target - yawState.floatValue)
+            }
+
+            override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
+        }
+
+        val sensor = sensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)
+
+        sensorManager.registerListener(
+            listener,
+            sensor,
+            SensorManager.SENSOR_DELAY_GAME
+        )
+
+        onDispose {
+            sensorManager.unregisterListener(listener)
+        }
+    }
+
+    return yawState
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

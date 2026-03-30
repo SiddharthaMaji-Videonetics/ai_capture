@@ -63,12 +63,14 @@ import com.videonatics.smartcapture.core.showToast
 import com.videonatics.smartcapture.feature.capture.domain.model.Tilt
 import com.videonatics.smartcapture.feature.capture.presentation.view.components.DepthScanningBottomSheet
 import com.videonatics.smartcapture.feature.capture.presentation.view.components.LocationPermission
+import com.videonatics.smartcapture.feature.capture.presentation.view.components.rememberYaw
 import com.videonatics.smartcapture.feature.capture.presentation.viewmodel.CaptureViewModel
 import com.videonatics.smartcapture.feature.home.presentation.view.HomePageComponent
 import com.videonatics.smartcapture.root.PageRoute
 import com.videonatics.smartcapture.ui.theme.LocalActivatedComponentPrimaryColor
 import com.videonatics.smartcapture.ui.theme.LocalTextPrimaryColor
 import com.videonatics.smartcapture.ui.theme.SmartCaptureTheme
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 @Composable
@@ -115,6 +117,7 @@ fun CameraCapturePageComponent(sharedViewModel: SharedCaptureViewModel? = null, 
     val noOfConfirmation = 1
     var object3dConfirmationCount by remember { mutableStateOf(noOfConfirmation) } //need to confirm 5 times side be side
 
+    val yaw by rememberYaw()
 
     val depthScanBottomSheetState = rememberModalBottomSheetState(
         skipPartiallyExpanded = true
@@ -131,7 +134,7 @@ fun CameraCapturePageComponent(sharedViewModel: SharedCaptureViewModel? = null, 
 
     LaunchedEffect(Unit) {
         lightSensorManager.start()
-        isDepthScanning = false
+        isDepthScanning = true
     }
 
     LaunchedEffect(lux) {
@@ -217,12 +220,14 @@ fun CameraCapturePageComponent(sharedViewModel: SharedCaptureViewModel? = null, 
                                         Log.d("ParallaxCheck", "Real 3D object detected")
                                         if(object3dConfirmationCount >0){
                                             object3dConfirmationCount--
-                                            sharedViewModel.capturedImageSeq.clear()
+                                            //sharedViewModel.capturedImageSeq.clear()
                                         }else{
-                                            sharedViewModel.capturedImageSeq.clear()
-                                            context.showToast("Real 3D object detected")
+                                            //sharedViewModel.capturedImageSeq.clear()
+                                            //context.showToast("Real 3D object detected")
+
                                             scope.launch {
                                                 depthScanBottomSheetState.hide()
+                                                delay(500)
                                                 isDepthScanning = false
                                                 object3dConfirmationCount =0
                                             }
@@ -235,6 +240,7 @@ fun CameraCapturePageComponent(sharedViewModel: SharedCaptureViewModel? = null, 
                                         if(object3dConfirmationCount <=noOfConfirmation){
                                         object3dConfirmationCount++
                                         }
+                                        context.showToast("move your phone slowly left and right.")
                                     }
                                     sharedViewModel.trimDepthImageSeq()
                                 }
@@ -303,7 +309,8 @@ fun CameraCapturePageComponent(sharedViewModel: SharedCaptureViewModel? = null, 
             //TiltComponent(tilt)
 
             if(isDepthScanning){
-                DepthScanningBottomSheet(depthScanBottomSheetState) {
+                DepthScanningBottomSheet(depthScanBottomSheetState,
+                    yaw) {
                     isDepthScanning = true
                 }
             }

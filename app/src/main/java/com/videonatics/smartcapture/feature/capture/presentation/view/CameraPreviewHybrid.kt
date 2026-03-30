@@ -100,7 +100,6 @@ fun CameraPreviewHybrid(
         } else {
             val options = ObjectDetectorOptions.Builder()
                 .setDetectorMode(ObjectDetectorOptions.STREAM_MODE)
-                .enableClassification()
                 .enableMultipleObjects()
                 .build()
             ObjectDetection.getClient(options)
