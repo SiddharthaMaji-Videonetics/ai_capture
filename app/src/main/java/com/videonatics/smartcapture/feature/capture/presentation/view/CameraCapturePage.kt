@@ -90,6 +90,10 @@ fun CameraCapturePage(navController: NavController,
         Log.e("location","Lat: ${location!!.first}, Lon: ${location!!.second}")
     }
     return CameraCapturePageComponent(sharedViewModel,onImageCapture = {
+        location?.apply {
+            sharedViewModel?.capturedLocation = location
+        }
+
         if(sharedViewModel?.isDepthDetectionEnabled()?:false){
             navController.navigate(PageRoute.DEPTH_CHECK.name) {
                 popUpTo(PageRoute.CAPTURE.name) {

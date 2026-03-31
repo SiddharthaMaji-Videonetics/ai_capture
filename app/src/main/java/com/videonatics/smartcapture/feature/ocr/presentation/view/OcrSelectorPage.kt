@@ -15,6 +15,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import android.graphics.Rect
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -63,7 +64,11 @@ fun OcrSelectorPage(
     var isOcrLoaded by remember { mutableStateOf(false) }
 
 
-
+    BackHandler(true) {
+        navController.navigate(PageRoute.CAPTURE.name) {
+            popUpTo(PageRoute.OCR_SELECT.name) { inclusive = true }
+        }
+    }
 
     LaunchedEffect(capturedImageArray) {
         capturedImageArray?.apply {
@@ -75,9 +80,12 @@ fun OcrSelectorPage(
         }
 
     }
-    return OcrSelectorPageComponent(capturedImage, ocrList,isOcrLoaded ){
+    return OcrSelectorPageComponent(capturedImage, ocrList,isOcrLoaded, onNextPage = {
+        sharedViewModel.ocrString = it
+        navController.navigate(PageRoute.IMAGE_DETAILS.name){}
+    } ){
         navController.navigate(PageRoute.CAPTURE.name) {
-            popUpTo(PageRoute.IMAGE_DETAILS.name) { inclusive = true }
+            popUpTo(PageRoute.OCR_SELECT.name) { inclusive = true }
         }
     }
 }
@@ -87,6 +95,7 @@ fun OcrSelectorPage(
 fun OcrSelectorPageComponent(img: Bitmap? = null,
                              ocrBoxes: List<OcrBox> = emptyList(),
                              isOcrLoaded: Boolean = false,
+                             onNextPage:(ocr: String)-> Unit = {},
                              onBack: () -> Unit) {
 
 
@@ -158,20 +167,24 @@ fun OcrSelectorPageComponent(img: Bitmap? = null,
                         }
                     )
                 }else{
-                    ExtendedFloatingActionButton(
-                        icon = {
-                            Icon(
+                    AnimatedVisibility(
+                        visible = ocrBoxes.isEmpty()
+                    ) {
+                        ExtendedFloatingActionButton(
+                            icon = {
+                                Icon(
                                 imageVector = Icons.Default.NavigateNext,
                                 contentDescription = "Next"
-                            )
-                        },
-                        text = {
-                            Text("Next")
-                        },
-                        onClick = {
+                                )
+                                   }, 
+                            text = { 
+                                Text("Next")
+                                   },
+                            onClick = {
+                                onNextPage.invoke(ocrFullString)
+                            }
+                        ) }
 
-                        }
-                    )
                 }
             }
 
@@ -206,8 +219,10 @@ fun OcrSelectorPageComponent(img: Bitmap? = null,
             if(editOcrBottomSheet) {
                 OcrEditBottomSheet(ocrEditBottomSheetState,
                     ocrFullString,
-                    onEditedOcr = {
+                    onEditedOcr = {ocr ->
                         editOcrBottomSheet = false
+                        onNextPage.invoke(ocr)
+
                 }){
                     editOcrBottomSheet = false
                 }

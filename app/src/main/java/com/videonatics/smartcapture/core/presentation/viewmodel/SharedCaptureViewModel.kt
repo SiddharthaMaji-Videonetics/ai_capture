@@ -20,6 +20,8 @@ class SharedCaptureViewModel @Inject constructor(
     private val coreRepository: CoreRepository
 ) : ViewModel() {
 
+    var capturedLocation: Pair<Double, Double>? = null
+    var ocrString: String = ""
     val depthImageNoThreshold = 20
 
     //depth ---

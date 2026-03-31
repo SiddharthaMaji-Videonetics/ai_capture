@@ -1,6 +1,7 @@
 package com.videonatics.smartcapture.core
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Context
 import android.graphics.Bitmap
@@ -12,6 +13,7 @@ import android.graphics.PointF
 import android.graphics.Rect
 import android.graphics.RectF
 import android.graphics.YuvImage
+import android.location.LocationManager
 import android.media.Image
 import android.os.Build
 import android.os.VibrationEffect
@@ -23,6 +25,7 @@ import androidx.camera.core.ImageProxy
 import androidx.camera.view.PreviewView
 import androidx.camera.view.TransformExperimental
 import androidx.compose.ui.graphics.Color
+import com.google.android.gms.location.LocationServices
 import com.google.ar.core.ArCoreApk
 import com.google.ar.core.Coordinates2d
 import com.google.ar.core.Frame
@@ -1012,3 +1015,24 @@ suspend fun processImage(bitmap: Bitmap): List<OcrBox> =
                 if (cont.isActive) cont.resumeWithException(it)
             }
     }
+
+@SuppressLint("MissingPermission")
+fun getAltitude(context: Context, onResult: (Double?) -> Unit) {
+
+    val fusedLocationClient = LocationServices.getFusedLocationProviderClient(context)
+
+    fusedLocationClient.getCurrentLocation(
+        com.google.android.gms.location.Priority.PRIORITY_HIGH_ACCURACY,
+        null
+    ).addOnSuccessListener { location ->
+
+        if (location != null && location.hasAltitude()) {
+            onResult(location.altitude)
+        } else {
+            onResult(null)
+        }
+
+    }.addOnFailureListener {
+        onResult(null)
+    }
+}

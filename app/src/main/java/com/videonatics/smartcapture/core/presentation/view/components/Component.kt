@@ -34,6 +34,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import com.videonatics.smartcapture.core.HapticManager
 import com.videonatics.smartcapture.core.domain.model.OcrBox
+import com.videonatics.smartcapture.core.getAltitude
 
 @Composable
 fun ZoomableImage(bitmap: ImageBitmap) {

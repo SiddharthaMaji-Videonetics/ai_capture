@@ -83,7 +83,7 @@ fun OcrEditBottomSheet(sheetState: SheetState,
             Button(onClick = {
                 scope.launch {
                     sheetState.hide()
-                    onEditedOcr.invoke(ocrString)
+                    onEditedOcr.invoke(mutableOcrString)
                 }
 
             }) {

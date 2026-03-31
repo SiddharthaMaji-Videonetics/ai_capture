@@ -41,6 +41,7 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -59,6 +60,7 @@ import com.google.mlkit.vision.objects.defaults.ObjectDetectorOptions
 import com.google.mlkit.vision.text.Text
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
+import com.videonatics.smartcapture.core.getAltitude
 import com.videonatics.smartcapture.core.presentation.view.components.ZoomableImage
 import com.videonatics.smartcapture.core.presentation.viewmodel.SharedCaptureViewModel
 import com.videonatics.smartcapture.core.toConfidenceColor
@@ -79,14 +81,14 @@ fun ImageDetailsPage(navController: NavController,
         ImageDetailsPageComponent()
         return
     }
+
+    val context = LocalContext.current
     val viewModel: ImageDetailsViewModel = hiltViewModel()
     var overallObject by remember { mutableStateOf<List<Pair<String, Any>>>(emptyList()) }
     var imgLbl by remember { mutableStateOf<List<Pair<String, Any>>>(emptyList()) }
     var ocrLbl by remember { mutableStateOf("---") }
-    var isTimeOut by remember { mutableStateOf(false) }
-    var isOnlineAnalysis = viewModel.isOfflineAnalysis()
     var isLoading by remember { mutableStateOf(false) }
-
+    var altitude by remember { mutableStateOf(0.0) }
 
 
 
@@ -101,195 +103,47 @@ fun ImageDetailsPage(navController: NavController,
         }
     }
 
-    fun getLocalOcr(bitmap: ImageBitmap, onOcr:(String) -> Unit){
-        val inputImage = InputImage.fromBitmap(bitmap.asAndroidBitmap(), 0)
-
-        // OCR
-        val textRecognizer = TextRecognition.getClient(
-            TextRecognizerOptions.DEFAULT_OPTIONS
-        )
-
-
-        val textTask = textRecognizer.process(inputImage)
-
-        Tasks.whenAllSuccess<List<Any>>(textTask)
-            .addOnSuccessListener { results ->
-
-
-                val text = results[0] as Text
-
-
-                // OCR Text
-                val ocrText = text.text
-
-                // Merge everything (unique values)
-
-                Log.d("OCR", ocrText)
-                onOcr.invoke(ocrText)
-            }
-            .addOnCompleteListener {
-                //imageProxy.close()
-            }
-
-
-        //            detector.process(inputImage)
-        //                .addOnSuccessListener { objects ->
-        //                    val allTags = objects.flatMap { obj ->
-        //                        obj.labels.map { label ->
-        //                            "${label.text} (${label.confidence})"
-        //                        }
-        //                    }
-        //                    Log.d("imgTags", allTags.toString())
-        //                }
-        //                .addOnFailureListener { e ->
-        //                    Log.e("imgTags", "Detection failed", e)
-        //                }
-    }
     fun getLocalAnalysis(bitmap: ImageBitmap) {
         val inputImage = InputImage.fromBitmap(bitmap.asAndroidBitmap(), 0)
 
-        // Object Detector
-        val objectOptions = ObjectDetectorOptions.Builder()
-            .setDetectorMode(ObjectDetectorOptions.SINGLE_IMAGE_MODE)
-            .enableMultipleObjects()
-            .enableClassification()
-            .build()
 
-        val objectDetector = ObjectDetection.getClient(objectOptions)
+    }
 
-        // Image Labeler
-        val labeler = ImageLabeling.getClient(
-            ImageLabelerOptions.Builder()
-                .setConfidenceThreshold(0.5f)
-                .build()
-        )
-
-        // OCR
-        val textRecognizer = TextRecognition.getClient(
-            TextRecognizerOptions.DEFAULT_OPTIONS
-        )
-
-
-        val objectTask = objectDetector.process(inputImage)
-        val labelTask = labeler.process(inputImage)
-        val textTask = textRecognizer.process(inputImage)
-
-        Tasks.whenAllSuccess<List<Any>>(objectTask, labelTask, textTask)
-            .addOnSuccessListener { results ->
-
-                val objects = results[0] as List<DetectedObject>
-                val labels = results[1] as List<ImageLabel>
-                val text = results[2] as Text
-
-                // Object Tags
-                val objectTags = objects.flatMap { obj ->
-                    obj.labels
-                        .filter { it.confidence > 0.5f }
-                        .map { it.text to it.confidence }
-                }
-
-                // Image Labels (More detailed)
-                val labelTags = labels
-                    .filter { it.confidence > 0.5f }
-                    .map { it.text to it.confidence }
-
-                // OCR Text
-                val ocrText = text.text
-
-                // Merge everything (unique values)
-                val finalTags = (objectTags + labelTags).toSet()
-
-                Log.d("OBJECTS", objectTags.toString())
-
-                overallObject = objectTags
-                Log.d("LABELS", labelTags.toString())
-                imgLbl = labelTags
-
-                Log.d("OCR", ocrText)
-                ocrLbl = ocrText
-
-                Log.d("FINAL_TAGS", finalTags.toString())
-
-            }
-            .addOnCompleteListener {
-                //imageProxy.close()
+    LaunchedEffect(Unit) {
+        getAltitude(context){
+            it?.apply {
+                altitude = it
             }
 
-
-        //            detector.process(inputImage)
-        //                .addOnSuccessListener { objects ->
-        //                    val allTags = objects.flatMap { obj ->
-        //                        obj.labels.map { label ->
-        //                            "${label.text} (${label.confidence})"
-        //                        }
-        //                    }
-        //                    Log.d("imgTags", allTags.toString())
-        //                }
-        //                .addOnFailureListener { e ->
-        //                    Log.e("imgTags", "Detection failed", e)
-        //                }
+        }
     }
 
     BackHandler(true) {
-        navController.navigate(PageRoute.CAPTURE.name) {
+        navController.navigate(PageRoute.OCR_SELECT.name) {
             popUpTo(PageRoute.IMAGE_DETAILS.name) { inclusive = true }
         }
     }
 
     LaunchedEffect(img) {
-
+        ocrLbl = sharedViewModel.ocrString
         isLoading = true
         img?.let {
-
-//            val d = viewModel.detect(it.asAndroidBitmap())
-//
-//            d.forEach {
-//                val label = viewModel.labels[it.classId]
-//                Log.d("YOLO", "$label : ${it.score}")
-//
-//            }
-
-            if(isOnlineAnalysis){
-
-                val bmp = it.asAndroidBitmap()
-            viewModel.getImageAnalysisData(bmp, onTimeOut = {
-                isTimeOut = true
-                isLoading = false
-            }){tags,ocr->
-
-//                getLocalOcr(it){ocr ->
-//                    ocrLbl = ocr
-//                }
-
-                ocrLbl = ocr
-                    imgLbl = tags.filter { it.first != "Summary" }
-                overallObject = tags.filter { it.first == "Summary" }
-                    isLoading = false
-            }
-            }else{
                 getLocalAnalysis(it)
                 isLoading = false
-            }
-
 
         }
     }
 
+
+
+
     ImageDetailsPageComponent(img = img,
         fullCapturedImage = fullCapturedImage,
-        overallObject = overallObject,
-        imgLbl = imgLbl,
+        location = sharedViewModel.capturedLocation,
+        altitude,
         ocrLbl = ocrLbl,
         navController,
-        isLoading = isLoading,
-        isOnlineAnalysis = isOnlineAnalysis,
-        isOfflineAnalysisOn = {
-            isOnlineAnalysis = it
-            img?.apply {
-                getLocalAnalysis(bitmap = this)
-            }
-
-        }, isTimeOut = isTimeOut)
+        isLoading = isLoading)
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -297,15 +151,11 @@ fun ImageDetailsPage(navController: NavController,
 fun ImageDetailsPageComponent(
     img: ImageBitmap? = null,
     fullCapturedImage: Bitmap? = null,
-    overallObject: List<Pair<String, Any>> = emptyList(),
-    imgLbl: List<Pair<String, Any>> = emptyList(),
+    location: Pair<Double, Double>? = null,
+    altitude: Double = 0.0,
     ocrLbl: String = "N/A",
     navController: NavController? = null,
     isLoading: Boolean = false,
-    isOnlineAnalysis: Boolean = true,
-    isOfflineAnalysisOn: (Boolean) -> Unit = {
-
-    },
     isTimeOut: Boolean = false
 ) {
 
@@ -319,7 +169,7 @@ fun ImageDetailsPageComponent(
                 navigationIcon = {
                     IconButton(
                         onClick = {
-                            navController?.navigate(PageRoute.CAPTURE.name) {
+                            navController?.navigate(PageRoute.OCR_SELECT.name) {
                                 popUpTo(PageRoute.IMAGE_DETAILS.name) { inclusive = true }
                             }
                         }
@@ -437,11 +287,86 @@ fun ImageDetailsPageComponent(
                                             },
                                             supportingContent = {
                                                 Text(if(ocrLbl.trim().isEmpty())
-                                                    if(overallObject.first().first.contains("Others")) "N/A"
-                                                    else
-                                                        "Nothing Found"
+                                                    "Nothing Found"
                                                 else ocrLbl,
                                                     modifier = Modifier.padding(5.dp))
+                                            }
+                                        )
+                                    }
+
+                                }
+                                item {
+                                    Card( modifier = Modifier.padding(10.dp),
+                                        elevation = CardDefaults.cardElevation(
+                                            defaultElevation = 5.dp
+                                        ),) {
+                                        ListItem(
+                                            headlineContent ={
+                                                Column() {
+                                                    Text("Capture Info", modifier = Modifier
+                                                        .padding(horizontal = 5.dp, vertical = 5.dp),
+                                                        fontSize = 14.sp,
+                                                        color = LocalTextPrimaryColor.current,
+                                                        fontWeight = FontWeight.Medium)
+                                                    HorizontalDivider(
+                                                        color = LocalTextPrimaryColor.current,
+                                                    )
+                                                }
+
+                                            },
+                                            supportingContent = {
+                                                Column( modifier = Modifier
+                                                    .padding(5.dp)) {
+                                                    ListItem(
+
+                                                            headlineContent = {
+                                                                Text("Location", modifier = Modifier
+                                                                    .padding(horizontal = 5.dp, vertical = 5.dp),
+                                                                    fontSize = 18.sp,
+                                                                    color = LocalTextPrimaryColor.current,
+                                                                    fontWeight = FontWeight.W200)
+                                                            },
+                                                            trailingContent = {
+                                                                if(location !=null){
+                                                                    Text(
+                                                                        text = "${location.first}° N,${location.second}° E",
+                                                                        maxLines = 20,
+                                                                        fontSize = 14.sp,
+                                                                        color = LocalTextPrimaryColor.current,
+                                                                        fontWeight = FontWeight.Bold
+                                                                    )
+                                                                }else{
+                                                                    Text(
+                                                                        text = "Unknown",
+                                                                        maxLines = 20,
+                                                                        fontSize = 14.sp,
+                                                                        color = LocalTextPrimaryColor.current,
+                                                                        fontWeight = FontWeight.Bold
+                                                                    )
+                                                                }
+
+                                                            })
+                                                    ListItem(
+
+                                                        headlineContent = {
+                                                            Text("Altitude", modifier = Modifier
+                                                                .padding(horizontal = 5.dp, vertical = 5.dp),
+                                                                fontSize = 18.sp,
+                                                                color = LocalTextPrimaryColor.current,
+                                                                fontWeight = FontWeight.W200)
+                                                        },
+                                                        trailingContent = {
+                                                            Text(
+                                                                text = "${altitude} m",
+                                                                maxLines = 20,
+                                                                fontSize = 14.sp,
+                                                                color = LocalTextPrimaryColor.current,
+                                                                fontWeight = FontWeight.Bold
+                                                            )
+                                                        })
+
+
+                                                }
                                             }
                                         )
                                     }
@@ -480,39 +405,39 @@ fun ImageDetailsPageComponent(
 
                                                         },
                                                         supportingContent = {
-                                                            if(imgLbl.isEmpty()){
-                                                                Text("Details not specified", modifier = Modifier.padding(5.dp))
-                                                            }else{
-                                                            Column( modifier = Modifier
-                                                                .padding(5.dp)) {
-                                                                imgLbl.forEach {obj ->
-                                                                    ListItem(
-
-                                                                        headlineContent = {
-                                                                            Text(obj.first, modifier = Modifier
-                                                                                .padding(horizontal = 5.dp, vertical = 5.dp),
-                                                                                fontSize = 18.sp,
-                                                                                color = LocalTextPrimaryColor.current,
-                                                                                fontWeight = FontWeight.W200)
-                                                                        },
-                                                                        trailingContent = {
-                                                                            Text(
-                                                                                text = if(obj.second is Float) (obj.second as Float).toPercentageString() else obj.second.toString(),
-                                                                                maxLines = 20,
-                                                                                fontSize = 14.sp,
-                                                                                color = if(obj.second is Float) (obj.second as Float).toConfidenceColor()
-                                                                                else
-                                                                                    if(obj.second.toString().contains("Good")) 1F.toConfidenceColor()
-                                                                                    else if(obj.second.toString().contains("Bad")) 0F.toConfidenceColor()
-                                                                                    else LocalTextPrimaryColor.current,
-                                                                                fontWeight = FontWeight.Bold
-                                                                            )
-                                                                        })
-
-
-                                                                }
-                                                            }
-                                                        }
+//                                                            if(imgLbl.isEmpty()){
+//                                                                Text("Details not specified", modifier = Modifier.padding(5.dp))
+//                                                            }else{
+//                                                            Column( modifier = Modifier
+//                                                                .padding(5.dp)) {
+//                                                                imgLbl.forEach {obj ->
+//                                                                    ListItem(
+//
+//                                                                        headlineContent = {
+//                                                                            Text(obj.first, modifier = Modifier
+//                                                                                .padding(horizontal = 5.dp, vertical = 5.dp),
+//                                                                                fontSize = 18.sp,
+//                                                                                color = LocalTextPrimaryColor.current,
+//                                                                                fontWeight = FontWeight.W200)
+//                                                                        },
+//                                                                        trailingContent = {
+//                                                                            Text(
+//                                                                                text = if(obj.second is Float) (obj.second as Float).toPercentageString() else obj.second.toString(),
+//                                                                                maxLines = 20,
+//                                                                                fontSize = 14.sp,
+//                                                                                color = if(obj.second is Float) (obj.second as Float).toConfidenceColor()
+//                                                                                else
+//                                                                                    if(obj.second.toString().contains("Good")) 1F.toConfidenceColor()
+//                                                                                    else if(obj.second.toString().contains("Bad")) 0F.toConfidenceColor()
+//                                                                                    else LocalTextPrimaryColor.current,
+//                                                                                fontWeight = FontWeight.Bold
+//                                                                            )
+//                                                                        })
+//
+//
+//                                                                }
+//                                                            }
+//                                                        }
                                                         }
                                                     )
                                                 }
@@ -545,27 +470,27 @@ fun ImageDetailsPageComponent(
 
                                                         },
                                                         supportingContent = {
-                                                            if(overallObject.isEmpty()){
-                                                                Text("Unidentified", modifier = Modifier.padding(5.dp))
-                                                            }else{
-                                                                Column( modifier = Modifier
-                                                                    .padding(5.dp)) {
-                                                                    overallObject.forEach {obj ->
-                                                                        ListItem(
-
-                                                                            headlineContent = {
-                                                                                Text(
-                                                                                    text = obj.second.toString(),
-                                                                                    fontSize = 14.sp,
-                                                                                    color = LocalTextPrimaryColor.current,
-                                                                                    fontWeight = FontWeight.Bold
-                                                                                )
-                                                                            })
-
-
-                                                                    }
-                                                                }
-                                                            }
+//                                                            if(overallObject.isEmpty()){
+//                                                                Text("Unidentified", modifier = Modifier.padding(5.dp))
+//                                                            }else{
+//                                                                Column( modifier = Modifier
+//                                                                    .padding(5.dp)) {
+//                                                                    overallObject.forEach {obj ->
+//                                                                        ListItem(
+//
+//                                                                            headlineContent = {
+//                                                                                Text(
+//                                                                                    text = obj.second.toString(),
+//                                                                                    fontSize = 14.sp,
+//                                                                                    color = LocalTextPrimaryColor.current,
+//                                                                                    fontWeight = FontWeight.Bold
+//                                                                                )
+//                                                                            })
+//
+//
+//                                                                    }
+//                                                                }
+//                                                            }
 
                                                         }
                                                     )
