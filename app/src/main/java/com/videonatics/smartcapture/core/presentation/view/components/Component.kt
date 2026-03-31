@@ -34,27 +34,60 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import com.videonatics.smartcapture.core.HapticManager
 import com.videonatics.smartcapture.core.domain.model.OcrBox
-import com.videonatics.smartcapture.core.getAltitude
 
 @Composable
 fun ZoomableImage(bitmap: ImageBitmap) {
 
     var scale by remember { mutableStateOf(1f) }
-    var offsetX by remember { mutableStateOf(0f) }
-    var offsetY by remember { mutableStateOf(0f) }
+    var offset by remember { mutableStateOf(Offset.Zero) }
+
+    val minScale = 1f
+    val maxScale = 5f
 
     Box(
         modifier = Modifier
             .fillMaxSize()
             .pointerInput(Unit) {
+
+                detectTapGestures(
+                    onDoubleTap = { tapOffset ->
+
+                        if (scale > 1f) {
+                            // Reset
+                            scale = 1f
+                            offset = Offset.Zero
+                        } else {
+                            // Zoom into tapped position
+                            scale = 2.5f
+
+                            offset = Offset(
+                                x = -tapOffset.x,
+                                y = -tapOffset.y
+                            )
+                        }
+                    }
+                )
+            }
+            .pointerInput(Unit) {
+
                 detectTransformGestures { _, pan, zoom, _ ->
 
-                    // Apply zoom
-                    scale = (scale * zoom).coerceIn(1f, 5f)
+                    val newScale = (scale * zoom).coerceIn(minScale, maxScale)
 
-                    // Apply pan
-                    offsetX += pan.x
-                    offsetY += pan.y
+                    // Adjust pan based on scale change
+                    val scaleChange = newScale / scale
+
+                    offset = Offset(
+                        x = (offset.x + pan.x) * scaleChange,
+                        y = (offset.y + pan.y) * scaleChange
+                    )
+
+                    scale = newScale
+
+                    // Reset offset if back to min scale
+                    if (scale == 1f) {
+                        offset = Offset.Zero
+                    }
                 }
             }
     ) {
@@ -62,15 +95,15 @@ fun ZoomableImage(bitmap: ImageBitmap) {
         Image(
             bitmap = bitmap,
             contentDescription = null,
-            contentScale = ContentScale.FillWidth,
+            contentScale = ContentScale.Fit,
             modifier = Modifier
                 .fillMaxSize()
-                .graphicsLayer(
-                    scaleX = scale,
-                    scaleY = scale,
-                    translationX = offsetX,
-                    translationY = offsetY
-                )
+                .graphicsLayer {
+                    scaleX = scale
+                    scaleY = scale
+                    translationX = offset.x
+                    translationY = offset.y
+                }
         )
     }
 }
@@ -242,6 +275,9 @@ fun PixelPerfectOCRViewer(
     var offset by remember { mutableStateOf(Offset.Zero) }
     var selectedIds by remember { mutableStateOf(setOf<Int>()) }
 
+    val minScale = 1f
+    val maxScale = 5f
+
     BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
@@ -263,10 +299,23 @@ fun PixelPerfectOCRViewer(
         val imageOffsetY = (containerH - displayH) / 2f
 
         val transformState = rememberTransformableState { zoom, pan, _ ->
-            val newScale = (scale * zoom).coerceIn(1f, 5f)
-            val isZooming = zoom != 1f
+
+            val newScale = (scale * zoom).coerceIn(minScale, maxScale)
+            val scaleFactor = newScale / scale
+
+            // Use container center as pivot
+            val centerX = containerW / 2f
+            val centerY = containerH / 2f
+
+            val newOffset = Offset(
+                x = (offset.x + pan.x) - (centerX * (scaleFactor - 1f)),
+                y = (offset.y + pan.y) - (centerY * (scaleFactor - 1f))
+            )
+
             scale = newScale
-            if (!isZooming) offset += pan
+            offset = newOffset
+
+            if (scale == 1f) offset = Offset.Zero
         }
 
         fun mapToImageSpace(tap: Offset): Offset {
@@ -306,23 +355,39 @@ fun PixelPerfectOCRViewer(
                 .fillMaxSize()
                 .transformable(transformState)
                 .pointerInput(scale, offset) {
-                    detectTapGestures { tap ->
-                        val p = mapToImageSpace(tap)
-
-                        val tappedId = ocrBoxes.find { box ->
-                            isInside(p.x, p.y, box.cornerPoints)
-                        }?.id
-
-                        tappedId?.let { id ->
-                            selectedIds = if (selectedIds.contains(id)) {
-                                selectedIds - id
+                    detectTapGestures(
+                        onDoubleTap = { tap ->
+                            if (scale > 1f) {
+                                scale = 1f
+                                offset = Offset.Zero
                             } else {
-                                selectedIds + id
+                                val targetScale = 2.5f
+                                val newOffset = Offset(
+                                    x = -(tap.x * (targetScale - 1f)),
+                                    y = -(tap.y * (targetScale - 1f))
+                                )
+                                scale = targetScale
+                                offset = newOffset
                             }
-                        }
+                        },
+                        onTap = { tap ->
+                            val p = mapToImageSpace(tap)
 
-                        onSelectedOcrIds(selectedIds.toList())
-                    }
+                            val tappedId = ocrBoxes.find { box ->
+                                isInside(p.x, p.y, box.cornerPoints)
+                            }?.id
+
+                            tappedId?.let { id ->
+                                selectedIds = if (selectedIds.contains(id)) {
+                                    selectedIds - id
+                                } else {
+                                    selectedIds + id
+                                }
+                            }
+
+                            onSelectedOcrIds(selectedIds.toList())
+                        }
+                    )
                 }
         ) {
             Box(

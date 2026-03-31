@@ -1015,24 +1015,3 @@ suspend fun processImage(bitmap: Bitmap): List<OcrBox> =
                 if (cont.isActive) cont.resumeWithException(it)
             }
     }
-
-@SuppressLint("MissingPermission")
-fun getAltitude(context: Context, onResult: (Double?) -> Unit) {
-
-    val fusedLocationClient = LocationServices.getFusedLocationProviderClient(context)
-
-    fusedLocationClient.getCurrentLocation(
-        com.google.android.gms.location.Priority.PRIORITY_HIGH_ACCURACY,
-        null
-    ).addOnSuccessListener { location ->
-
-        if (location != null && location.hasAltitude()) {
-            onResult(location.altitude)
-        } else {
-            onResult(null)
-        }
-
-    }.addOnFailureListener {
-        onResult(null)
-    }
-}

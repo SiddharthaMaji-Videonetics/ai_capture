@@ -87,7 +87,7 @@ fun CameraCapturePage(navController: NavController,
     }
 
     if (location != null) {
-        Log.e("location","Lat: ${location!!.first}, Lon: ${location!!.second}")
+        Log.e("location","Lat: ${location!!.latitude}, Lon: ${location!!.longitude}")
     }
     return CameraCapturePageComponent(sharedViewModel,onImageCapture = {
         location?.apply {

@@ -1,6 +1,7 @@
 package com.videonatics.smartcapture.core.presentation.viewmodel
 
 import android.graphics.Bitmap
+import android.location.Location
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -20,7 +21,7 @@ class SharedCaptureViewModel @Inject constructor(
     private val coreRepository: CoreRepository
 ) : ViewModel() {
 
-    var capturedLocation: Pair<Double, Double>? = null
+    var capturedLocation: Location? = null
     var ocrString: String = ""
     val depthImageNoThreshold = 20
 

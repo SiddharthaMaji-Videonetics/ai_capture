@@ -2,10 +2,10 @@ package com.videonatics.smartcapture.feature.imagedetails.presentation.view
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.location.Location
 import android.util.Log
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -40,7 +40,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.text.font.FontWeight
@@ -49,22 +48,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.navigation.NavController
-import com.google.android.gms.tasks.Tasks
 import com.google.mlkit.vision.common.InputImage
-import com.google.mlkit.vision.label.ImageLabel
-import com.google.mlkit.vision.label.ImageLabeling
-import com.google.mlkit.vision.label.defaults.ImageLabelerOptions
-import com.google.mlkit.vision.objects.DetectedObject
-import com.google.mlkit.vision.objects.ObjectDetection
-import com.google.mlkit.vision.objects.defaults.ObjectDetectorOptions
-import com.google.mlkit.vision.text.Text
-import com.google.mlkit.vision.text.TextRecognition
-import com.google.mlkit.vision.text.latin.TextRecognizerOptions
-import com.videonatics.smartcapture.core.getAltitude
 import com.videonatics.smartcapture.core.presentation.view.components.ZoomableImage
 import com.videonatics.smartcapture.core.presentation.viewmodel.SharedCaptureViewModel
-import com.videonatics.smartcapture.core.toConfidenceColor
-import com.videonatics.smartcapture.core.toPercentageString
 import com.videonatics.smartcapture.feature.imagedetails.presentation.viewmodel.ImageDetailsViewModel
 import com.videonatics.smartcapture.root.PageRoute
 import com.videonatics.smartcapture.ui.theme.LocalCameraBackground
@@ -109,15 +95,6 @@ fun ImageDetailsPage(navController: NavController,
 
     }
 
-    LaunchedEffect(Unit) {
-        getAltitude(context){
-            it?.apply {
-                altitude = it
-            }
-
-        }
-    }
-
     BackHandler(true) {
         navController.navigate(PageRoute.OCR_SELECT.name) {
             popUpTo(PageRoute.IMAGE_DETAILS.name) { inclusive = true }
@@ -151,7 +128,7 @@ fun ImageDetailsPage(navController: NavController,
 fun ImageDetailsPageComponent(
     img: ImageBitmap? = null,
     fullCapturedImage: Bitmap? = null,
-    location: Pair<Double, Double>? = null,
+    location: Location? = null,
     altitude: Double = 0.0,
     ocrLbl: String = "N/A",
     navController: NavController? = null,
@@ -329,7 +306,7 @@ fun ImageDetailsPageComponent(
                                                             trailingContent = {
                                                                 if(location !=null){
                                                                     Text(
-                                                                        text = "${location.first}° N,${location.second}° E",
+                                                                        text = "${location.latitude}° N,${location.longitude}° E",
                                                                         maxLines = 20,
                                                                         fontSize = 14.sp,
                                                                         color = LocalTextPrimaryColor.current,
@@ -357,7 +334,7 @@ fun ImageDetailsPageComponent(
                                                         },
                                                         trailingContent = {
                                                             Text(
-                                                                text = "${altitude} m",
+                                                                text = "${location?.altitude} m",
                                                                 maxLines = 20,
                                                                 fontSize = 14.sp,
                                                                 color = LocalTextPrimaryColor.current,
