@@ -31,6 +31,8 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import com.videonatics.smartcapture.core.HapticManager
 import com.videonatics.smartcapture.core.domain.model.OcrBox
 
 @Composable
@@ -377,4 +379,10 @@ fun PixelPerfectOCRViewer(
             }
         }
     }
+}
+
+@Composable
+fun rememberHapticManager(): HapticManager {
+    val context = LocalContext.current
+    return remember { HapticManager(context) }
 }

@@ -54,9 +54,11 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.videonatics.smartcapture.R
+import com.videonatics.smartcapture.core.HapticManager
 import com.videonatics.smartcapture.core.LightSensorManager
 import com.videonatics.smartcapture.core.TiltPopup
 import com.videonatics.smartcapture.core.isLowLight
+import com.videonatics.smartcapture.core.presentation.view.components.rememberHapticManager
 import com.videonatics.smartcapture.core.presentation.viewmodel.SharedCaptureViewModel
 import com.videonatics.smartcapture.core.rememberTiltState
 import com.videonatics.smartcapture.core.showToast
@@ -152,6 +154,7 @@ fun CameraCapturePageComponent(sharedViewModel: SharedCaptureViewModel? = null, 
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
 
+    val haptic = rememberHapticManager()
 
     return Scaffold (
         floatingActionButtonPosition = FabPosition.Center,
@@ -166,6 +169,7 @@ fun CameraCapturePageComponent(sharedViewModel: SharedCaptureViewModel? = null, 
                     targetScale = 0.6f
                 ) + fadeOut()
             ) {
+                haptic.perform(HapticManager.Type.SUCCESS)
                 FloatingActionButton(
                     containerColor = Color(0xFF3F51B5),
                     onClick = {

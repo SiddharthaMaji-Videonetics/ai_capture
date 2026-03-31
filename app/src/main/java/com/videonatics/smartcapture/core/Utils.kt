@@ -1,18 +1,24 @@
 package com.videonatics.smartcapture.core
 
+import android.Manifest
 import android.app.Activity
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.ImageFormat
 import android.graphics.Matrix
+import android.graphics.Point
 import android.graphics.PointF
 import android.graphics.Rect
 import android.graphics.RectF
 import android.graphics.YuvImage
 import android.media.Image
+import android.os.Build
+import android.os.VibrationEffect
+import android.os.Vibrator
 import android.util.Log
 import android.widget.Toast
+import androidx.annotation.RequiresPermission
 import androidx.camera.core.ImageProxy
 import androidx.camera.view.PreviewView
 import androidx.camera.view.TransformExperimental
@@ -51,6 +57,7 @@ import org.tensorflow.lite.support.tensorbuffer.TensorBuffer
 import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import kotlin.collections.map
 import kotlin.coroutines.resumeWithException
 import kotlin.math.abs
 import kotlin.math.roundToInt
@@ -923,50 +930,78 @@ fun computeRange(values: List<Int>): Int {
 suspend fun processImage(bitmap: Bitmap): List<OcrBox> =
     suspendCancellableCoroutine { cont ->
 
+        val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
         val image = InputImage.fromBitmap(bitmap, 0)
 
-        TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
-            .process(image)
+        recognizer.process(image)
             .addOnSuccessListener { visionText ->
 
                 val results = mutableListOf<OcrBox>()
-                var id = 0
+                var idCounter = 0
 
                 val w = bitmap.width.toFloat()
                 val h = bitmap.height.toFloat()
 
-                visionText.textBlocks.forEach { block ->
-                    block.lines.forEach { line ->
-                        line.elements.forEach { element ->
+                fun addBox(
+                    text: String,
+                    rect: Rect,
+                    points: Array<Point>
+                ) {
+                    if (points.size != 4) return
 
+                    results.add(
+                        OcrBox(
+                            id = idCounter++,
+                            text = text,
+                            rect = RectF(
+                                rect.left / w,
+                                rect.top / h,
+                                rect.right / w,
+                                rect.bottom / h
+                            ),
+                            cornerPoints = points.map {
+                                PointF(it.x / w, it.y / h)
+                            }
+                        )
+                    )
+                }
+
+                visionText.textBlocks.forEach { block ->
+
+                    var hasAny = false
+
+                    block.lines.forEach { line ->
+
+                        var lineHasElements = false
+
+                        line.elements.forEach { element ->
                             val rect = element.boundingBox
                             val points = element.cornerPoints
 
-                            if (rect != null && points != null && points.size == 4) {
-
-                                val normalizedRect = RectF(
-                                    rect.left / w,
-                                    rect.top / h,
-                                    rect.right / w,
-                                    rect.bottom / h
-                                )
-
-                                val normalizedPoints = points.map {
-                                    PointF(
-                                        it.x / w,
-                                        it.y / h
-                                    )
-                                }
-
-                                results.add(
-                                    OcrBox(
-                                        id = id++,
-                                        text = element.text,
-                                        rect = normalizedRect,
-                                        cornerPoints = normalizedPoints
-                                    )
-                                )
+                            if (rect != null && points != null) {
+                                addBox(element.text, rect, points)
+                                lineHasElements = true
+                                hasAny = true
                             }
+                        }
+
+                        if (!lineHasElements) {
+                            val rect = line.boundingBox
+                            val points = line.cornerPoints
+
+                            if (rect != null && points != null) {
+                                addBox(line.text, rect, points)
+                                hasAny = true
+                            }
+                        }
+                    }
+
+                    if (!hasAny) {
+                        val rect = block.boundingBox
+                        val points = block.cornerPoints
+
+                        if (rect != null && points != null) {
+                            addBox(block.text, rect, points)
                         }
                     }
                 }
