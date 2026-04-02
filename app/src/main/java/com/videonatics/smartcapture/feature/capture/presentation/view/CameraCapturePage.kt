@@ -246,9 +246,10 @@ fun CameraCapturePageComponent(sharedViewModel: SharedCaptureViewModel? = null, 
                                     else {
                                         Log.d("ParallaxCheck", "Flat photo detected")
                                         if(object3dConfirmationCount <=noOfConfirmation){
-                                        object3dConfirmationCount++
+                                            object3dConfirmationCount++
+                                            context.showToast("move your phone slowly left and right.")
                                         }
-                                        context.showToast("move your phone slowly left and right.")
+
                                     }
                                     sharedViewModel.trimDepthImageSeq()
                                 }

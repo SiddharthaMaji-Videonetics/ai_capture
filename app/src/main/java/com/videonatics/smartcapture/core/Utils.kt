@@ -1,42 +1,31 @@
 package com.videonatics.smartcapture.core
 
-import android.Manifest
-import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.ImageFormat
-import android.graphics.Matrix
 import android.graphics.Point
 import android.graphics.PointF
 import android.graphics.Rect
 import android.graphics.RectF
 import android.graphics.YuvImage
-import android.location.LocationManager
 import android.media.Image
-import android.os.Build
-import android.os.VibrationEffect
-import android.os.Vibrator
 import android.util.Log
 import android.widget.Toast
-import androidx.annotation.RequiresPermission
+
 import androidx.camera.core.ImageProxy
 import androidx.camera.view.PreviewView
-import androidx.camera.view.TransformExperimental
 import androidx.compose.ui.graphics.Color
-import com.google.android.gms.location.LocationServices
 import com.google.ar.core.ArCoreApk
 import com.google.ar.core.Coordinates2d
 import com.google.ar.core.Frame
 import com.google.ar.core.Plane
-import com.google.ar.core.Session
 import com.google.ar.core.TrackingState
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.objects.DetectedObject
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
-import com.videonatics.smartcapture.core.ar_core.ARCoreManager
 import com.videonatics.smartcapture.core.domain.model.Detection
 import com.videonatics.smartcapture.core.domain.model.Instruction
 import com.videonatics.smartcapture.core.domain.model.OcrBox
@@ -47,8 +36,18 @@ import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.opencv.android.Utils
+import org.opencv.calib3d.Calib3d
 import org.opencv.core.Core
+import org.opencv.core.CvType
 import org.opencv.core.Mat
+import org.opencv.core.MatOfDMatch
+import org.opencv.core.MatOfDouble
+import org.opencv.core.MatOfKeyPoint
+import org.opencv.core.MatOfPoint2f
+import org.opencv.core.Scalar
+import org.opencv.core.Size
+import org.opencv.features2d.BFMatcher
+import org.opencv.features2d.ORB
 import org.opencv.imgproc.Imgproc
 import org.opencv.video.Video
 import org.tensorflow.lite.DataType
@@ -58,11 +57,8 @@ import org.tensorflow.lite.support.image.TensorImage
 import org.tensorflow.lite.support.image.ops.ResizeOp
 import org.tensorflow.lite.support.tensorbuffer.TensorBuffer
 import java.io.ByteArrayOutputStream
-import java.nio.ByteBuffer
-import java.nio.ByteOrder
 import kotlin.collections.map
 import kotlin.coroutines.resumeWithException
-import kotlin.math.abs
 import kotlin.math.roundToInt
 
 
@@ -810,93 +806,6 @@ fun byteArrayToBitmap(byteArray: ByteArray): Bitmap {
     return BitmapFactory.decodeByteArray(byteArray, 0, byteArray.size)
 }
 
-fun bitmapToGrayMat(bitmap: Bitmap): Mat {
-    val mat = Mat()
-    val bmp32 = bitmap.copy(Bitmap.Config.ARGB_8888, true)
-    Utils.bitmapToMat(bmp32, mat)
-    Imgproc.cvtColor(mat, mat, Imgproc.COLOR_BGR2GRAY)
-    return mat
-}
-
-private fun calculateParallaxScore(frames: List<Bitmap>): Float {
-    if (frames.size < 2) return 0f
-
-    var totalFlowMagnitude = 0.0
-
-    for (i in 0 until frames.size - 1) {
-        val prevMat = bitmapToGrayMat(frames[i])
-        val nextMat = bitmapToGrayMat(frames[i + 1])
-
-        val flow = Mat()
-        Video.calcOpticalFlowFarneback(
-            prevMat, nextMat, flow,
-            0.5, 3, 15, 3, 5, 1.2, 0
-        )
-
-        // Split flow into x and y channels
-        val flowXY = ArrayList<Mat>()
-        Core.split(flow, flowXY)
-
-        // Compute magnitude
-        val magnitudeMat = Mat()
-        Core.magnitude(flowXY[0], flowXY[1], magnitudeMat)
-
-        // Average magnitude
-        val avgMagnitude = Core.mean(magnitudeMat).`val`[0]
-        totalFlowMagnitude += avgMagnitude
-    }
-
-    return (totalFlowMagnitude / (frames.size - 1)).toFloat()
-}
-
-private fun calculateFlowVariance(frames: List<Bitmap>): Float {
-    if (frames.size < 2) return 0f
-
-    val avgMagnitudes = mutableListOf<Float>()
-
-    for (i in 0 until frames.size - 1) {
-        val prevMat = bitmapToGrayMat(frames[i])
-        val nextMat = bitmapToGrayMat(frames[i + 1])
-
-        val flow = Mat()
-        Video.calcOpticalFlowFarneback(
-            prevMat, nextMat, flow,
-            0.5, 3, 15, 3, 5, 1.2, 0
-        )
-
-        // Split flow into x and y channels
-        val flowXY = ArrayList<Mat>()
-        Core.split(flow, flowXY)
-
-        // Compute magnitude for all pixels
-        val magnitudeMat = Mat()
-        Core.magnitude(flowXY[0], flowXY[1], magnitudeMat)
-
-        // Compute average magnitude for this frame pair
-        val meanMag = Core.mean(magnitudeMat).`val`[0].toFloat()
-        avgMagnitudes.add(meanMag)
-    }
-
-    // Compute variance of average magnitudes
-    val mean = avgMagnitudes.average().toFloat()
-    val variance = avgMagnitudes.map { (it - mean) * (it - mean) }.average().toFloat()
-    return variance
-}
-
-fun combinedParallaxDetection(bitmaps: List<Bitmap>,
-                              avgThreshold: Float = 1.0f,
-                              varThreshold: Float = 1.5f): Boolean {
-
-    val avgFlow = calculateParallaxScore(bitmaps)
-    val flowVar = calculateFlowVariance(bitmaps)
-
-    // Weighted combination
-    val combinedScore = 0.4f * avgFlow + 0.6f * flowVar
-
-    // Threshold decision
-    return combinedScore > varThreshold
-}
-
 fun Context.showToast(message: String, duration: Int = Toast.LENGTH_SHORT) {
     Toast.makeText(this, message, duration).show()
 }
@@ -930,7 +839,337 @@ fun computeRange(values: List<Int>): Int {
     return values.maxOrNull()!! - values.minOrNull()!!
 }
 
-suspend fun processImage(bitmap: Bitmap): List<OcrBox> =
+fun calculateAverageFlow(frames: List<Mat>): Float {
+    var total = 0.0
+
+    for (i in 0 until frames.size - 1) {
+        val flow = Mat()
+
+        Video.calcOpticalFlowFarneback(
+            frames[i], frames[i + 1], flow,
+            0.5, 3, 15, 3, 5, 1.2, 0
+        )
+
+        val xy = ArrayList<Mat>()
+        Core.split(flow, xy)
+
+        val mag = Mat()
+        Core.magnitude(xy[0], xy[1], mag)
+
+        total += Core.mean(mag).`val`[0]
+    }
+
+    return (total / (frames.size - 1)).toFloat()
+}
+
+val confidenceHistory = ArrayDeque<Float>()
+val directionalHistory = ArrayDeque<Float>()
+
+val MAX_HISTORY = 5
+fun detectDepth(bitmaps: List<Bitmap>): Boolean {
+
+    val frames = preprocess(bitmaps)
+
+    if (!isSequenceValid(frames)) return false
+
+    val motion = calculateAverageFlow(frames)
+    if (motion < 0.05f || motion > 15f) return false
+
+    val spatial = calculateSpatialDepth(frames)
+    val directional = calculateDirectionalVariance(frames)
+
+    val spatialNorm = (spatial / 2f).coerceIn(0f, 1f)
+    val directionalNorm = directional.coerceIn(0f, 1f)
+
+    val directionalBoost =
+        Math.pow(directionalNorm.toDouble(), 1.7).toFloat()
+
+    val confidence =
+        0.3f * spatialNorm +
+                0.7f * directionalBoost
+
+    return updateDepth(confidence, directional)
+}
+
+ fun preprocess(bitmaps: List<Bitmap>): List<Mat> {
+    return bitmaps.map {
+        val gray = bitmapToGrayMat(it)
+        resizeMat(gray)
+    }
+}
+
+private fun resizeMat(src: Mat, width: Int = 320, height: Int = 240): Mat {
+    val dst = Mat()
+    Imgproc.resize(src, dst, Size(width.toDouble(), height.toDouble()))
+    return dst
+}
+
+private fun getMatchedPoints(prev: Mat, next: Mat): Pair<List<org.opencv.core.Point>, List<org.opencv.core.Point>> {
+
+    val orb = ORB.create(1000)
+
+    val kp1 = MatOfKeyPoint()
+    val kp2 = MatOfKeyPoint()
+    val desc1 = Mat()
+    val desc2 = Mat()
+
+    orb.detectAndCompute(prev, Mat(), kp1, desc1)
+    orb.detectAndCompute(next, Mat(), kp2, desc2)
+
+    if (desc1.empty() || desc2.empty()) {
+        return Pair(emptyList(), emptyList())
+    }
+
+    val matcher = BFMatcher.create(Core.NORM_HAMMING, false)
+    val matches = ArrayList<MatOfDMatch>()
+    matcher.knnMatch(desc1, desc2, matches, 2)
+
+    val goodPts1 = mutableListOf<org.opencv.core.Point>()
+    val goodPts2 = mutableListOf<org.opencv.core.Point>()
+
+    val kp1List = kp1.toArray()
+    val kp2List = kp2.toArray()
+
+    for (m in matches) {
+        val pair = m.toArray()
+        if (pair.size >= 2 && pair[0].distance < 0.75 * pair[1].distance) {
+            val p1 = kp1List[pair[0].queryIdx].pt
+            val p2 = kp2List[pair[0].trainIdx].pt
+
+            goodPts1.add(p1)
+            goodPts2.add(p2)
+        }
+    }
+
+    return Pair(goodPts1, goodPts2)
+}
+
+private fun bitmapToGrayMat(bitmap: Bitmap): Mat {
+    val mat = Mat()
+    Utils.bitmapToMat(bitmap, mat)
+
+    val gray = Mat()
+    Imgproc.cvtColor(mat, gray, Imgproc.COLOR_RGBA2GRAY)
+
+   //flow stability
+    Imgproc.GaussianBlur(gray, gray, Size(5.0, 5.0), 0.0)
+
+    return gray
+}
+private fun isSequenceValid(frames: List<Mat>): Boolean {
+
+    for (i in 0 until frames.size - 1) {
+
+        val (pts1, pts2) = getMatchedPoints(frames[i], frames[i + 1])
+
+        if (pts1.size < 20) return false
+
+        val mat1 = MatOfPoint2f(*pts1.toTypedArray())
+        val mat2 = MatOfPoint2f(*pts2.toTypedArray())
+
+        val mask = Mat()
+
+        Calib3d.findHomography(
+            mat1, mat2,
+            Calib3d.RANSAC,
+            3.0,
+            mask
+        )
+
+        val inliers = Core.countNonZero(mask)
+        val ratio = inliers.toFloat() / pts1.size
+
+        if (ratio < 0.3f) return false
+    }
+
+    return true
+}
+
+private fun calculateSpatialDepth(frames: List<Mat>): Float {
+    if (frames.size < 2) return 0f
+
+    var total = 0.0
+
+    for (i in 0 until frames.size - 1) {
+
+        val flow = Mat()
+        Video.calcOpticalFlowFarneback(
+            frames[i], frames[i + 1], flow,
+            0.5, 3, 15, 3, 5, 1.2, 0
+        )
+
+        val xy = ArrayList<Mat>()
+        Core.split(flow, xy)
+
+        val mag = Mat()
+        Core.magnitude(xy[0], xy[1], mag)
+
+        //  LIGHT global motion removal (not full subtract)
+        val meanVal = Core.mean(mag).`val`[0]
+        val centered = Mat()
+        Core.subtract(mag, Scalar(meanVal * 0.7), centered)
+
+        Core.max(centered, Scalar(0.0), centered)
+
+        //LOWER threshold (important fix)
+        val maskFloat = Mat()
+        Imgproc.threshold(centered, maskFloat, 0.03, 1.0, Imgproc.THRESH_BINARY)
+
+    // Convert to 8-bit mask
+        val mask = Mat()
+        maskFloat.convertTo(mask, CvType.CV_8U)
+
+        val filtered = Mat()
+        centered.copyTo(filtered, mask)
+
+        val mean = MatOfDouble()
+        val std = MatOfDouble()
+        Core.meanStdDev(filtered, mean, std)
+
+        // REMOVE normalization (critical change)
+        val stdVal = std.toArray()[0]
+
+// normalize
+        val normalized = stdVal / meanVal
+
+// clamp extreme values
+        val stable = normalized.coerceIn(0.0, 2.0)
+
+        total += stable
+    }
+
+    return (total / (frames.size - 1)).toFloat()
+}
+
+private fun calculateDirectionalVariance(frames: List<Mat>): Float {
+    if (frames.size < 2) return 0f
+
+    var total = 0.0
+
+    for (i in 0 until frames.size - 1) {
+
+        val flow = Mat()
+        Video.calcOpticalFlowFarneback(
+            frames[i], frames[i + 1], flow,
+            0.5, 3, 15, 3, 5, 1.2, 0
+        )
+
+        val xy = ArrayList<Mat>()
+        Core.split(flow, xy)
+
+        val mag = Mat()
+        val angle = Mat()
+        Core.cartToPolar(xy[0], xy[1], mag, angle, true)
+
+        // LOWER threshold
+        val mask = Mat()
+        // create proper binary mask
+        Imgproc.threshold(mag, mask, 0.03, 255.0, Imgproc.THRESH_BINARY)
+
+// convert to 8-bit (required by copyTo)
+        mask.convertTo(mask, CvType.CV_8U)
+
+        val x = Mat()
+        val y = Mat()
+        Core.polarToCart(mag, angle, x, y, true)
+
+        val xMasked = Mat()
+        val yMasked = Mat()
+        x.copyTo(xMasked, mask)
+        y.copyTo(yMasked, mask)
+
+        val meanX = Core.mean(xMasked).`val`[0]
+        val meanY = Core.mean(yMasked).`val`[0]
+
+        val magMean = Math.sqrt(meanX * meanX + meanY * meanY)
+
+        val varScore = 1.0 - (magMean / (Core.mean(mag).`val`[0] + 1e-5))
+
+        total += varScore
+    }
+
+    return (total / (frames.size - 1)).toFloat()
+}
+
+private fun calculateFlowConsistency(frames: List<Mat>): Float {
+    var total = 0.0
+
+    for (i in 0 until frames.size - 1) {
+
+        val flow = Mat()
+        Video.calcOpticalFlowFarneback(
+            frames[i], frames[i + 1], flow,
+            0.5, 3, 15, 3, 5, 1.2, 0
+        )
+
+        val xy = ArrayList<Mat>()
+        Core.split(flow, xy)
+
+        val meanX = Core.mean(xy[0]).`val`[0]
+        val meanY = Core.mean(xy[1]).`val`[0]
+
+        val consistency = Math.sqrt(meanX * meanX + meanY * meanY)
+
+        total += consistency
+    }
+
+    return (total / (frames.size - 1)).toFloat()
+}
+
+private fun calculateEdgeDensity(frame: Mat): Float {
+    val edges = Mat()
+    Imgproc.Canny(frame, edges, 50.0, 150.0)
+
+    val edgePixels = Core.countNonZero(edges)
+    val totalPixels = frame.rows() * frame.cols()
+
+    return edgePixels.toFloat() / totalPixels
+}
+
+fun updateDepth(confidence: Float, directional: Float): Boolean {
+
+    //  ALWAYS store
+    confidenceHistory.addLast(confidence)
+    directionalHistory.addLast(directional)
+
+    if (confidenceHistory.size > MAX_HISTORY) {
+        confidenceHistory.removeFirst()
+        directionalHistory.removeFirst()
+    }
+
+    //  allow faster activation
+    if (directionalHistory.size < 2) return false
+
+    val strongDirectional = directionalHistory.filter { it > 0.10f }
+    val strongConfidence = confidenceHistory.zip(directionalHistory)
+        .filter { it.second > 0.10f }
+        .map { it.first }
+
+    //  require at least 2 strong frames
+    if (strongDirectional.size < 2) return false
+
+    val avgDirectional = strongDirectional.average().toFloat()
+    val avgConfidence = strongConfidence.average().toFloat()
+
+    val result =
+        avgDirectional > 0.12f &&
+                avgConfidence > 0.23f
+
+    Log.d(
+        "DEPTH_TEMPORAL",
+        """
+        raw_dir=$directionalHistory
+        strong_dir=$strongDirectional
+        avgDir=$avgDirectional
+        avgConf=$avgConfidence
+        FINAL=$result
+        """.trimIndent()
+    )
+
+    return result
+}
+
+suspend fun processImageForOCR(bitmap: Bitmap): List<OcrBox> =
     suspendCancellableCoroutine { cont ->
 
         val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)

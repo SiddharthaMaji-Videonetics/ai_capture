@@ -5,8 +5,11 @@ import android.location.Location
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.videonatics.smartcapture.core.combinedParallaxDetection
+import com.videonatics.smartcapture.core.MAX_HISTORY
+import com.videonatics.smartcapture.core.confidenceHistory
 import com.videonatics.smartcapture.core.cropBoundary
+import com.videonatics.smartcapture.core.detectDepth
+import com.videonatics.smartcapture.core.directionalHistory
 import com.videonatics.smartcapture.core.domain.repository.CoreRepository
 import com.videonatics.smartcapture.ui.BoundaryPercent
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -24,6 +27,8 @@ class SharedCaptureViewModel @Inject constructor(
     var capturedLocation: Location? = null
     var ocrString: String = ""
     val depthImageNoThreshold = 20
+
+
 
     //depth ---
     val capturedImageSeq = ArrayList<Bitmap>()
@@ -43,13 +48,16 @@ class SharedCaptureViewModel @Inject constructor(
         return coreRepository.isDepthDetectionOn()
     }
 
+
+
     fun analyzeDepth(images: List<Bitmap>, onResult: (Boolean) -> Unit) {
 
         viewModelScope.launch(Dispatchers.Default) {
             try {
                 // Ensure images list is not modified while processing
                 val imagesCopy = images.toList()
-                val isRealObj = combinedParallaxDetection(imagesCopy)
+
+                val isRealObj = detectDepth(imagesCopy)
                 withContext(Dispatchers.Main) {
                     onResult.invoke(isRealObj)
                 }
@@ -82,3 +90,10 @@ class SharedCaptureViewModel @Inject constructor(
     var capturedImage: ByteArray? = null
     var capturedFullImage: Bitmap? = null
 }
+
+
+
+
+
+
+
