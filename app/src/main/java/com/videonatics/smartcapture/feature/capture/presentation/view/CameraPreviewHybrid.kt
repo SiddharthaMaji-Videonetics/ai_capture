@@ -44,6 +44,8 @@ import com.google.ar.core.Frame
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.objects.ObjectDetection
 import com.google.mlkit.vision.objects.defaults.ObjectDetectorOptions
+import com.videonatics.smartcapture.core.appendStatsToFile
+import com.videonatics.smartcapture.core.calculateStats
 import com.videonatics.smartcapture.core.cropBoundary
 import com.videonatics.smartcapture.core.cropBoundingBox
 import com.videonatics.smartcapture.core.domain.model.Instruction
@@ -53,6 +55,9 @@ import com.videonatics.smartcapture.core.handleDetectionResult
 import com.videonatics.smartcapture.core.mapPreviewRectToBitmap
 import com.videonatics.smartcapture.ui.BoundaryPercent
 import java.io.ByteArrayOutputStream
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
@@ -110,6 +115,9 @@ fun CameraPreviewHybrid(
     val isCapturing = remember { AtomicBoolean(false) }
     val lastDetectionTime = remember { AtomicLong(0L) }
     val isDisposed = remember { AtomicBoolean(false) }
+    val isProcessing = remember {AtomicBoolean(false)}
+
+    val processFrameDurationArray = ArrayList<Long>()
 
     val resolutionSelector = remember {
         ResolutionSelector.Builder()
@@ -152,6 +160,7 @@ fun CameraPreviewHybrid(
 //    }
 
     DisposableEffect(Unit) {
+
         onDispose {
             isDisposed.set(true)
             //ARCoreManager.stop()
@@ -171,7 +180,6 @@ fun CameraPreviewHybrid(
 
     LaunchedEffect(lifecycleOwner) {
         if (isInspectionMode) return@LaunchedEffect
-
         val cameraProvider = suspendCoroutine<ProcessCameraProvider?> { continuation ->
             val future = ProcessCameraProvider.getInstance(context)
             future.addListener({
@@ -218,8 +226,43 @@ fun CameraPreviewHybrid(
                 imageProxy.imageInfo.rotationDegrees
             )
 
+            if (!isProcessing.compareAndSet(false, true)) {
+                imageProxy.close()
+                return@setAnalyzer
+            }
+
+
+            val startTime = System.currentTimeMillis()
+
             currentDetector.process(inputImage)
                 .addOnSuccessListener { objects ->
+
+                    val elapsedMs = (System.nanoTime() - startTime) / 1_000_000
+
+                    if(processFrameDurationArray.size > 100){
+                        val stats = calculateStats(processFrameDurationArray)
+
+                        val logText =   """
+                                        Min: ${stats.min} ms
+                                        Max: ${stats.max} ms
+                                        Mean: ${"%.2f".format(stats.mean)} ms
+                                        Variance: ${"%.2f".format(stats.variance)}
+                                        StdDev: ${"%.2f".format(stats.stdDev)} ms
+                                        Time: ${ SimpleDateFormat(
+                                        "HH:mm:ss dd/MM/yyyy",
+                                        Locale.getDefault()
+                                        )
+                                        .format(Date())}
+                                        """.trimIndent()
+
+                        appendStatsToFile(context, logText)
+
+                        processFrameDurationArray.clear()
+
+                    }else{
+                        processFrameDurationArray.add(elapsedMs)
+                    }
+
                     if (isDisposed.get()) return@addOnSuccessListener
 
                     val currentSize = previewSize
@@ -227,6 +270,11 @@ fun CameraPreviewHybrid(
 
                     val boundary = getBoundaryRect(currentSize.width, currentSize.height)
 
+                    if(currentSize.width >0){
+                        if(!isProcessing.get()) {
+                            isProcessing.set(true)
+                        }
+                    }
                     handleDetectionResult(
                         objects = objects,
                         boundary = boundary,
@@ -316,11 +364,13 @@ fun CameraPreviewHybrid(
                             onCapturedImageStream.invoke(imageProxy.toBitmap())
                         }
                     )
+
                 }
                 .addOnFailureListener {
                     Log.e("ML", "Detection failed", it)
                 }
                 .addOnCompleteListener {
+                    isProcessing.set(false)
                     imageProxy.close()
                 }
         }

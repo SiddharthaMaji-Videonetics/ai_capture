@@ -84,7 +84,7 @@ fun FlashToggle() {
         isOn = !isOn
         flashController.setFlash(isOn)
     }) {
-        Text(if (isOn) "Flash ON 🔦" else "Flash OFF")
+        Text(if (isOn) "Flash ON" else "Flash OFF")
     }
 }
 

@@ -1,6 +1,8 @@
 package com.videonatics.smartcapture.core
 
 import android.app.Activity
+import android.content.ContentUris
+import android.content.ContentValues
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -11,6 +13,9 @@ import android.graphics.Rect
 import android.graphics.RectF
 import android.graphics.YuvImage
 import android.media.Image
+import android.net.Uri
+import android.os.Environment
+import android.provider.MediaStore
 import android.util.Log
 import android.widget.Toast
 
@@ -679,7 +684,7 @@ fun ensureARCoreInstalled(activity: Activity): Boolean {
 
 
 fun isLowLight(lux: Float): Boolean {
-    return lux < 30f
+    return lux < 10f
 }
 
 
@@ -1254,3 +1259,44 @@ suspend fun processImageForOCR(bitmap: Bitmap): List<OcrBox> =
                 if (cont.isActive) cont.resumeWithException(it)
             }
     }
+
+fun appendStatsToFile(context: Context, logText: String) {
+    val resolver = context.contentResolver
+    val fileName = "smart_capture_mlkit_stats.txt"
+
+    // Try to find existing file
+    val collection = MediaStore.Files.getContentUri("external")
+
+    val projection = arrayOf(MediaStore.MediaColumns._ID)
+    val selection = "${MediaStore.MediaColumns.DISPLAY_NAME} = ?"
+    val selectionArgs = arrayOf(fileName)
+
+    var fileUri: Uri? = null
+
+    resolver.query(collection, projection, selection, selectionArgs, null)?.use { cursor ->
+        if (cursor.moveToFirst()) {
+            val id = cursor.getLong(0)
+            fileUri = ContentUris.withAppendedId(collection, id)
+        }
+    }
+
+    // If not found → create new file
+    if (fileUri == null) {
+        val contentValues = ContentValues().apply {
+            put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
+            put(MediaStore.MediaColumns.MIME_TYPE, "text/plain")
+            put(
+                MediaStore.MediaColumns.RELATIVE_PATH,
+                Environment.DIRECTORY_DOCUMENTS + "/SmartCaptureLogs"
+            )
+        }
+        fileUri = resolver.insert(collection, contentValues)
+    }
+
+    // Append to file
+    fileUri?.let { uri ->
+        resolver.openOutputStream(uri, "wa")?.use { stream ->
+            stream.write((logText + "\n\n").toByteArray())
+        }
+    }
+}

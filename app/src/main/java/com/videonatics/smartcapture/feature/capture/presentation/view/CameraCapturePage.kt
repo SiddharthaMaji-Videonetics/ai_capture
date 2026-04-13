@@ -140,7 +140,7 @@ fun CameraCapturePageComponent(sharedViewModel: SharedCaptureViewModel? = null, 
 
     LaunchedEffect(Unit) {
         lightSensorManager.start()
-        isDepthScanning = true
+        isDepthScanning = false
     }
 
     LaunchedEffect(lux) {
