@@ -226,41 +226,48 @@ fun CameraPreviewHybrid(
                 imageProxy.imageInfo.rotationDegrees
             )
 
-            if (!isProcessing.compareAndSet(false, true)) {
-                imageProxy.close()
-                return@setAnalyzer
+            var startTime: Long? = null
+
+            startTime = if (isProcessing.get()) {
+                null
+            }else{
+                System.nanoTime()
             }
 
 
-            val startTime = System.currentTimeMillis()
+
 
             currentDetector.process(inputImage)
                 .addOnSuccessListener { objects ->
+                    if(isProcessing.get()) {
+                        isProcessing.set(false)
+                    }
 
-                    val elapsedMs = (System.nanoTime() - startTime) / 1_000_000
+                    if(startTime !=null){
+                        val elapsedMs = (System.nanoTime() - startTime) / 1_000_000
 
-                    if(processFrameDurationArray.size > 100){
-                        val stats = calculateStats(processFrameDurationArray)
+                        if(processFrameDurationArray.size > 100){
+                            val stats = calculateStats(processFrameDurationArray)
 
-                        val logText =   """
-                                        Min: ${stats.min} ms
-                                        Max: ${stats.max} ms
-                                        Mean: ${"%.2f".format(stats.mean)} ms
-                                        Variance: ${"%.2f".format(stats.variance)}
-                                        StdDev: ${"%.2f".format(stats.stdDev)} ms
-                                        Time: ${ SimpleDateFormat(
-                                        "HH:mm:ss dd/MM/yyyy",
-                                        Locale.getDefault()
-                                        )
-                                        .format(Date())}
-                                        """.trimIndent()
+                            val logText = """
+    Min: ${stats.min} ms (${"%.2f".format(stats.min / 1000.0)} s)
+    Max: ${stats.max} ms (${"%.2f".format(stats.max / 1000.0)} s)
+    Mean: ${"%.2f".format(stats.mean)} ms (${"%.2f".format(stats.mean / 1000.0)} s)
+    Variance: ${"%.2f".format(stats.variance)}
+    StdDev: ${"%.2f".format(stats.stdDev)} ms (${"%.2f".format(stats.stdDev / 1000.0)} s)
+    Time: ${
+                                SimpleDateFormat("HH:mm:ss dd/MM/yyyy", Locale.getDefault())
+                                    .format(Date())
+                            }
+""".trimIndent()
 
-                        appendStatsToFile(context, logText)
+                            appendStatsToFile(context, logText)
 
-                        processFrameDurationArray.clear()
+                            processFrameDurationArray.clear()
 
-                    }else{
-                        processFrameDurationArray.add(elapsedMs)
+                        }else{
+                            processFrameDurationArray.add(elapsedMs)
+                        }
                     }
 
                     if (isDisposed.get()) return@addOnSuccessListener
@@ -270,11 +277,7 @@ fun CameraPreviewHybrid(
 
                     val boundary = getBoundaryRect(currentSize.width, currentSize.height)
 
-                    if(currentSize.width >0){
-                        if(!isProcessing.get()) {
-                            isProcessing.set(true)
-                        }
-                    }
+
                     handleDetectionResult(
                         objects = objects,
                         boundary = boundary,
