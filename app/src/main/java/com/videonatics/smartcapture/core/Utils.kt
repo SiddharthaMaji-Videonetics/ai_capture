@@ -31,6 +31,7 @@ import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.objects.DetectedObject
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
+import com.videonatics.smartcapture.core.domain.model.CustomDetection
 import com.videonatics.smartcapture.core.domain.model.Detection
 import com.videonatics.smartcapture.core.domain.model.Instruction
 import com.videonatics.smartcapture.core.domain.model.OcrBox
@@ -62,6 +63,10 @@ import org.tensorflow.lite.support.image.TensorImage
 import org.tensorflow.lite.support.image.ops.ResizeOp
 import org.tensorflow.lite.support.tensorbuffer.TensorBuffer
 import java.io.ByteArrayOutputStream
+import java.io.FileInputStream
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
+import java.nio.channels.FileChannel
 import kotlin.collections.map
 import kotlin.coroutines.resumeWithException
 import kotlin.math.roundToInt
@@ -1299,4 +1304,118 @@ fun appendStatsToFile(context: Context, logText: String) {
             stream.write((logText + "\n\n").toByteArray())
         }
     }
+}
+
+fun loadModelFile(context: Context): ByteBuffer {
+    val fileDescriptor = context.assets.openFd("mdl1.tflite")
+    val inputStream = FileInputStream(fileDescriptor.fileDescriptor)
+    val fileChannel = inputStream.channel
+    val startOffset = fileDescriptor.startOffset
+    val declaredLength = fileDescriptor.declaredLength
+
+    return fileChannel.map(
+        FileChannel.MapMode.READ_ONLY,
+        startOffset,
+        declaredLength
+    )
+}
+
+fun bitmapToNCHW(bitmap: Bitmap, size: Int): ByteBuffer {
+
+    val resized = Bitmap.createScaledBitmap(bitmap, size, size, true)
+
+    val buffer = ByteBuffer.allocateDirect(4 * 3 * size * size)
+    buffer.order(ByteOrder.nativeOrder())
+
+    val pixels = IntArray(size * size)
+    resized.getPixels(pixels, 0, size, 0, 0, size, size)
+
+    val r = FloatArray(size * size)
+    val g = FloatArray(size * size)
+    val b = FloatArray(size * size)
+
+    for (i in pixels.indices) {
+        val p = pixels[i]
+        r[i] = ((p shr 16) and 0xFF) / 255f
+        g[i] = ((p shr 8) and 0xFF) / 255f
+        b[i] = (p and 0xFF) / 255f
+    }
+
+    // IMPORTANT: CHW order
+    for (i in r.indices) buffer.putFloat(r[i])
+    for (i in g.indices) buffer.putFloat(g[i])
+    for (i in b.indices) buffer.putFloat(b[i])
+
+    buffer.rewind()
+    return buffer
+}
+
+fun processOutput(
+    output: Array<Array<FloatArray>>,
+    inputSize: Int = 416
+): List<RectF> {
+
+    val results = mutableListOf<RectF>()
+    val predictions = output[0]
+
+    fun sigmoid(x: Float) = (1f / (1f + kotlin.math.exp(-x)))
+
+    for (det in predictions) {
+
+        val cx = sigmoid(det[0]) * inputSize
+        val cy = sigmoid(det[1]) * inputSize
+        val w = sigmoid(det[2]) * inputSize
+        val h = sigmoid(det[3]) * inputSize
+
+        val left = cx - w / 2
+        val top = cy - h / 2
+        val right = cx + w / 2
+        val bottom = cy + h / 2
+
+        if (right > left && bottom > top) {
+            results.add(RectF(left, top, right, bottom))
+        }
+    }
+
+    return results
+}
+fun nms(
+    detections: List<CustomDetection>,
+    iouThreshold: Float = 0.5f
+): List<CustomDetection> {
+
+    val sorted = detections.sortedByDescending { it.confidence }
+    val result = mutableListOf<CustomDetection>()
+
+    fun iou(a: RectF, b: RectF): Float {
+
+        val left = maxOf(a.left, b.left)
+        val top = maxOf(a.top, b.top)
+        val right = minOf(a.right, b.right)
+        val bottom = minOf(a.bottom, b.bottom)
+
+        val interWidth = maxOf(0f, right - left)
+        val interHeight = maxOf(0f, bottom - top)
+        val intersection = interWidth * interHeight
+
+        val areaA = (a.right - a.left) * (a.bottom - a.top)
+        val areaB = (b.right - b.left) * (b.bottom - b.top)
+
+        val union = areaA + areaB - intersection
+
+        return if (union <= 0f) 0f else intersection / union
+    }
+
+    for (d in sorted) {
+
+        val shouldKeep = result.none { kept ->
+            iou(kept.box, d.box) > iouThreshold && kept.label == d.label
+        }
+
+        if (shouldKeep) {
+            result.add(d)
+        }
+    }
+
+    return result
 }

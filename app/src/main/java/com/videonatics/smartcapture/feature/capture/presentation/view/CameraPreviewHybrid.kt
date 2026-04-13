@@ -38,6 +38,7 @@ import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
+import androidx.core.graphics.toRect
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.google.ar.core.Frame
@@ -45,15 +46,19 @@ import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.objects.ObjectDetection
 import com.google.mlkit.vision.objects.defaults.ObjectDetectorOptions
 import com.videonatics.smartcapture.core.appendStatsToFile
+import com.videonatics.smartcapture.core.bitmapToNCHW
 import com.videonatics.smartcapture.core.calculateStats
 import com.videonatics.smartcapture.core.cropBoundary
 import com.videonatics.smartcapture.core.cropBoundingBox
 import com.videonatics.smartcapture.core.domain.model.Instruction
-import com.videonatics.smartcapture.core.ensureARCoreInstalled
 import com.videonatics.smartcapture.core.getBoundaryRect
 import com.videonatics.smartcapture.core.handleDetectionResult
+import com.videonatics.smartcapture.core.loadModelFile
 import com.videonatics.smartcapture.core.mapPreviewRectToBitmap
+import com.videonatics.smartcapture.core.nms
+import com.videonatics.smartcapture.core.processOutput
 import com.videonatics.smartcapture.ui.BoundaryPercent
+import org.tensorflow.lite.Interpreter
 import java.io.ByteArrayOutputStream
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -78,6 +83,9 @@ fun CameraPreviewHybrid(
     onCapturedImageStream:(Bitmap) -> Unit,
     torchEnabled: Boolean = false
 ) {
+
+    val classNames = arrayOf("Twowheeler", "Human", "Animal", "Multiwheeler")
+
     var camera by remember { mutableStateOf<Camera?>(null) }
     var zoomRatio by remember { mutableFloatStateOf(1f) }
 
@@ -98,6 +106,9 @@ fun CameraPreviewHybrid(
     }
 
     var previewSize by remember { mutableStateOf(IntSize.Zero) }
+val model = loadModelFile(context)
+    val interpreter = Interpreter(model)
+
 
     val detector = remember(isInspectionMode) {
         if (isInspectionMode) {
@@ -226,6 +237,8 @@ fun CameraPreviewHybrid(
                 imageProxy.imageInfo.rotationDegrees
             )
 
+
+
             var startTime: Long? = null
 
             startTime = if (isProcessing.get()) {
@@ -233,6 +246,9 @@ fun CameraPreviewHybrid(
             }else{
                 System.nanoTime()
             }
+
+
+
 
 
 
@@ -278,6 +294,7 @@ fun CameraPreviewHybrid(
                     val boundary = getBoundaryRect(currentSize.width, currentSize.height)
 
 
+
                     handleDetectionResult(
                         objects = objects,
                         boundary = boundary,
@@ -290,7 +307,11 @@ fun CameraPreviewHybrid(
 
                             box?.apply {
 
-                                onBoundingBox.invoke(this)
+                                //onBoundingBox.invoke(this)
+                                //custom model flow ------------
+                                processCustomMl(interpreter, imageProxy, inputImage.width, inputImage.height){
+                                    onBoundingBox.invoke(it)
+                                }
 //                                if(isDepthDetectionEnabled){ //check if flatness if depth enabled
 //                                    val isFlat = checkFlatnessWithARCore(
 //                                        box = this,
@@ -303,7 +324,7 @@ fun CameraPreviewHybrid(
 //                                }
 
 
-                                if (currentCaptureTrigger && 
+                                if (currentCaptureTrigger &&
                                     result.message.contains("Perfect") &&
                                     !isDisposed.get() &&
                                     lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED) &&
@@ -326,6 +347,7 @@ fun CameraPreviewHybrid(
                                                         } else {
                                                             bitmap
                                                         }
+
                                                         val imageRect = mapPreviewRectToBitmap(
                                                             previewRect = this@apply,
                                                             previewWidth = previewView.width,
@@ -376,6 +398,8 @@ fun CameraPreviewHybrid(
                     isProcessing.set(false)
                     imageProxy.close()
                 }
+
+
         }
 
         try {
@@ -424,4 +448,32 @@ fun CameraPreviewHybrid(
                 }
             }
     )
+}
+
+private fun processCustomMl(
+    interpreter: Interpreter,
+    imageProxy: ImageProxy,
+    imageWidth: Int,
+    imageHeight: Int,
+    onBoundingBox: (Rect) -> Unit
+) {
+    val output = Array(1) { Array(3549) { FloatArray(9) } }
+
+    val shape = interpreter.getInputTensor(0).shape()
+    println(shape.contentToString())
+    println("input shape ${shape.contentToString()}")
+
+    val shapeOut = interpreter.getOutputTensor(0).shape()
+    println("output shape ${shapeOut.contentToString()}")
+
+    val imBuffer = bitmapToNCHW(imageProxy.toBitmap(), imageHeight)
+
+    println("BUFFER SIZE = ${imBuffer.capacity()} bytes")
+    interpreter.run(imBuffer, output)
+
+    val raw = processOutput(output)
+
+    for (d in raw) {
+        onBoundingBox.invoke(d.toRect())
+    }
 }
